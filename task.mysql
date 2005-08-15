@@ -13,10 +13,6 @@ CREATE TABLE task (
   started int(11) NOT NULL default '0',
   completed int(11) NOT NULL default '0',
   duedate int(11) NOT NULL default '0',
--- Taxonomy IDs:
-  status_tid int(10) unsigned NOT NULL default '0',
-  priority_tid int(10) unsigned NOT NULL default '0',
-  category_tid int(10) unsigned NOT NULL default '0',
 -- Visibility (see profile.module/database.mysql):
   visibility tinyint(1) DEFAULT '0' NOT NULL,
   PRIMARY KEY (id),
