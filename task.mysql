@@ -5,7 +5,7 @@
 --
 
 CREATE TABLE task (
-  id int(10) unsigned NOT NULL default '0',
+  tid int(10) unsigned NOT NULL default '0',
   nid int(10) unsigned NOT NULL default '0',
 -- Dates:
 -- node.created == created int(11) NOT NULL default '0',
@@ -13,8 +13,31 @@ CREATE TABLE task (
   started int(11) NOT NULL default '0',
   completed int(11) NOT NULL default '0',
   duedate int(11) NOT NULL default '0',
--- Visibility (see profile.module/database.mysql):
-  visibility tinyint(1) DEFAULT '0' NOT NULL,
-  PRIMARY KEY (id),
+  PRIMARY KEY (tid),
   KEY task_nid (nid)
+) TYPE=MyISAM;
+
+--
+-- Table structure for table 'task_column_layout'
+--
+
+CREATE TABLE task_column_layout (
+  uid int(10) unsigned NOT NULL default '0',
+  layout text NOT NULL default '',
+  PRIMARY KEY (uid)
+) TYPE=MyISAM;
+
+--
+-- Table structure for table 'task_column'
+--
+
+CREATE TABLE task_column (
+  cid int(10) unsigned NOT NULL default '0',
+  vid int(10) unsigned NOT NULL default '0',
+  name varchar(255) NOT NULL default '',
+  description longtext,
+  weight tinyint(4) NOT NULL default '0',
+  db_sort varchar(4) NOT NULL default '',
+  db_field varchar(32) NOT NULL default '',
+  PRIMARY KEY (cid)
 ) TYPE=MyISAM;
