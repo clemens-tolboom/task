@@ -5,23 +5,31 @@
  * @file
  * A task module for managing tasks.
  *
- * This module allows users and groups to manage tasks.
- * TODO: add more!
+ * The task module let's users manage tasks in a simple, yet powerful way.
+ * A task can be anything from a simple to-do item to a more complicated project
+ * related task. It's designed with individuals, small businesses, and institutions
+ * in mind. However, it should be able to handle just about any task you can think of.
  */
 
 /**
- * Implementation of hook_help().
+ * Provides links to CSS stylesheets and/or JavaScript scripts associated
+ * with this module.
+ *
+ * @param $calendar
+ *   Whether or not the jsCalendar includes should get included.
+ * @return
+ *   Various stylesheet and/or script includes.
  */
-function task_help($section) {
-  switch ($section) {
-// TODO: Fix these descriptions!
-    case 'admin/modules#description':
-      // This description is shown in the listing at admin/modules.
-      return t('Task manager for users and groups.');
-    case 'node/add#task':
-      // This description shows up when users click "create content."
-      return t('Creates a task.');
+function task_html_head($calendar = FALSE) {
+//  $output = theme('stylesheet_import', drupal_get_path('module', 'task') .'/task.css','screen');
+
+  if ($calendar == TRUE) {
+    $output .= '<script type="text/javascript" src="'. drupal_get_path('module', 'task') .'/calendar/calendar.js"></script>' . "\n";
+    $output .= '<script type="text/javascript" src="'. drupal_get_path('module', 'task') .'/calendar/calendar-setup.js"></script>' . "\n";
+    $output .= '<script type="text/javascript" src="'. drupal_get_path('module', 'task') .'/calendar/lang/calendar-en.js"></script>' . "\n";
+    $output .= theme('stylesheet_import', drupal_get_path('module', 'task') .'/calendar/skins/aqua/theme.css','screen');
   }
+  return $output;
 }
 
 /**
@@ -37,7 +45,6 @@ function task_node_name($node) {
 function task_perm() {
   return array('create task',
                'access task',
-               //'access private task',
                'edit own task');
 }
 
@@ -75,7 +82,7 @@ function task_access($op, $node) {
  * Implementation of hook_nodeapi().
  *
 */
-/*function og_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+/*function task_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
   global $user;
 
   switch ($op) {
@@ -101,16 +108,38 @@ function task_menu($may_cache) {
   $items = array();
 
   if ($may_cache) {
-  	$items[] = array('path' => 'tasks', 'title' => t('tasks'),
-                     'callback' => 'task_page_overview',
-                     'access' => user_access('access task'));
-
-    $items[] = array('path' => 'tasks/user', 'title' => t('my tasks'),
-                     'callback' => 'task_page_user',
-                     'access' => $user->uid && user_access('access task'));
-
     $items[] = array('path' => 'node/add/task', 'title' => t('task'),
-      'access' => user_access('create task'));
+                     'access' => user_access('create task'));
+
+    $items[] = array('path' => 'task/list', 'title' => t('tasks'),
+                     'callback' => 'task_list_page',
+                     'access' => user_access('access task'),
+                     'type' => MENU_CALLBACK);
+    $items[] = array('path' => 'task/list/user', 'title' => t('my tasks'),
+                     'callback' => 'task_list_page',
+                     'access' => $user->uid && user_access('access task'),
+                     'type' => MENU_CALLBACK);
+
+    $items[] = array('path' => 'task', 'title' => t('tasks'),
+                     'callback' => 'task_main_page',
+                     'access' => user_access('access task'),
+                     'type' => MENU_NORMAL_ITEM);
+    $items[] = array('path' => 'task/user', 'title' => t('my tasks'),
+                     'callback' => 'task_main_page',
+                     'access' => $user->uid && user_access('access task'),
+                     'type' => MENU_NORMAL_ITEM);
+
+    $items[] = array('path' => 'task/configure', 'title' => t('Configure task manager'),
+                     'callback' => 'task_configure_page',
+                     'access' => user_access('edit own task'),
+                     'type' => MENU_CALLBACK);
+  }
+  else {
+    // Code here loads on every page without caching, so it's guaranteed
+    // to load the newest changes.
+
+    // Add the task stylesheet to every page.
+    drupal_set_html_head(task_html_head());
   }
 
   return $items;
@@ -120,13 +149,54 @@ function task_menu($may_cache) {
  * Implementation of hook_form().
  */
 function task_form(&$node) {
+  drupal_set_html_head(task_html_head(TRUE));
   $output = '';
 
+  // Check if the task attribute vocabularies exist, if not create them.
+  $vocabularies = taxonomy_get_vocabularies('task');
+  if (empty($vocabularies)) {
+    _task_create_attributes();
+  }
+
+  $attr_group = '<span class="task-attributes">';
   // In order to be able to attach taxonomy terms to this node, we need
   // to display the appropriate form elements.
   if (function_exists('taxonomy_node_form')) {
-    $output .= implode('', taxonomy_node_form('task', $node));
+    $attr_group .= implode('', taxonomy_node_form('task', $node));
   }
+  $attr_group .= '</span>';
+  $output .= form_group_collapsible(t('Task atrributes'), $attr_group);
+
+  $date_format = _task_get_date_format();
+  $time_format = (strpos($date_format[0], 'g') === false) ? "24" : "12";
+  if (!form_get_errors()) {
+    $duedate = _task_format_duedate($node->duedate);
+  }
+  else {
+    $duedate = $node->duedate;
+  }
+// FIX: Due Date doesn't get converted to a string (it's either 0 or the timestamp)
+//      when editing a task that belongs to a group and is private to that group
+//      as the user admin.
+
+  $date_group .= form_textfield('Due date', 'duedate', $duedate, 40, 40, 'Click the calendar to the right.', array('style' => 'width: 33%;'));
+  $date_group .= form_item('', l(theme_image(drupal_get_path('module', 'task') .'/calendar/calendar.gif', 'Click for calendar', 'Click for calendar'), '#', array('id' => 'edit-duedate-trigger'), NULL, NULL, FALSE, TRUE));
+  $date_group .= form_item('', '<script type="text/javascript">
+    Calendar.setup(
+      {
+        inputField  : "edit-duedate",
+        button      : "edit-duedate-trigger",
+        ifFormat    : "'. $date_format[1] .'",
+        timeFormat  : "'. $time_format .'",
+        showsTime   : true,
+        showOthers  : true,
+        align       : "cR",
+        weekNumbers : true,
+        firstDay    : '. variable_get('date_first_day', 0) .'
+      }
+    );
+    </script>');
+  $output .= form_group_collapsible(t('Task dates'), $date_group);
 
   // Now we define the form elements specific to our node type.
   $output .= form_textarea(t('Body'), 'body', $node->body, 60, 20, '', NULL, TRUE);
@@ -139,16 +209,24 @@ function task_form(&$node) {
  * Implementation of hook_validate().
  */
 function task_validate(&$node) {
-
-// TODO: Is there a better way to do this? (require preview)
-  // Bail if user hasn't done a preview yet.
-  if (!isset($node->title)) {
-    return $node;
-  }
+//  if (!isset($node->title)) {
+//    return $node;
+//  }
 
   // We need a description.
-  if (empty($node->body)) {
+  if (empty($node->body) && $node->tid) {
     form_set_error('body', t('You must add a task description.'));
+  }
+
+  if (!empty($node->duedate) && is_string($node->duedate)) {
+    $time = strtotime($node->duedate);
+    //    < PHP 5.1   ||    >= PHP 5.1
+    if (($time == -1) || ($time == FALSE)) {
+      form_set_error('duedate', t('Invalid date.'));
+    }
+    else {
+      $node->duedate = $time;
+    }
   }
 
   return $node;
@@ -158,16 +236,15 @@ function task_validate(&$node) {
  * Implementation of hook_insert().
  */
 function task_insert($node) {
-  $taskid = db_next_id('task_id');
-  db_query("INSERT INTO {task} (id, nid) VALUES (%d, %d)", $taskid, $node->nid);
+  $tid = db_next_id('task_id');
+  db_query("INSERT INTO {task} (tid, nid, started, completed, duedate) VALUES (%d, %d, %d, %d, %d)", $tid, $node->nid, 0, 0, (!empty($node->duedate)) ? $node->duedate : 0);
 }
 
 /**
  * Implementation of hook_update().
  */
 function task_update($node) {
-  $taskid = db_result(db_query("SELECT id FROM {sequences} WHERE name = '%s'", 'task_id'));
-  db_query("UPDATE {task} SET id = %d WHERE nid = %d", $taskid,  $node->nid);
+  db_query("UPDATE {task} SET started = %d, completed = %d, duedate = %d WHERE nid = %d", 0, 0, (!empty($node->duedate)) ? $node->duedate : 0, $node->nid);
 }
 
 /**
@@ -180,120 +257,581 @@ function task_delete($node) {
 /**
  * Implementation of hook_load().
  */
-/*function task_load($node) {
-  $additions = db_fetch_object(db_query('SELECT color, quantity FROM {tasks} WHERE nid = %d', $node->nid));
-  return $additions;
+function task_load($node) {
+  $object = db_fetch_object(db_query("SELECT started, completed, duedate FROM {task} WHERE nid = %d", $node->nid));
+  $object->duedate = intval($object->duedate);
+  return $object;
 }
-*/
 
 /**
  * Implementation of hook_view().
  */
-/*function task_view(&$node, $teaser = FALSE, $page = FALSE) {
-  $order_info = theme('task_order_info', $node);
-  $node->body .= $order_info;
-  $node->teaser .= $order_info;
+function task_view(&$node, $teaser = FALSE, $page = FALSE) {
   $node = node_prepare($node, $teaser);
+
+// TODO: Create a theme_task().
+  if (!$teaser) {
+    $task    = node_load(array('nid' => $node->nid, 'type' => 'task'));
+    $duedate = _task_format_duedate($task->duedate);
+
+    $output = '<div class="task">';
+
+    $rows   = array();
+    $rows[] = array(t('Due Date:'), check_plain($duedate ? $duedate : 'None'));
+
+    foreach (taxonomy_node_get_terms($node->nid) as $tid => $term) {
+      $voc = taxonomy_get_vocabulary($term->vid);
+      $rows[] = array(t($voc->name). ':', l($term->name, 'taxonomy/term/'. $tid));
+    }
+
+    $output .= '<div class="summary">'. theme('table', array(), $rows) .'</div>';
+    $output .= '<p>'. t('Description') .'</p>';
+    $output .= '<p>'. $node->body .'</p>';
+    $output .= '</div>';
+
+    $node->body = $output;
+  }
 }
-*/
 
 /**
- * Menu callback; display a list of tasks.
+ * Theme the task list.
  */
-// TODO: _task_page_overview?
-function task_page_overview() {
-  $header = array(
-    array('data' => t('#')),
-    array('data' => t('Summary')),
-    array('data' => t('Priority')),
-    array('data' => t('Status')),
-    array('data' => t('Due Date')),
-    array('data' => t('Category'))
-  );
+function theme_task() {
 
-  // Fetch all tasks.
-  $result = db_query("SELECT n.nid, n.title, n.body, n.format, t.id FROM {node} n INNER JOIN {task} t ON n.nid = t.nid WHERE n.status = 1 ORDER BY t.id ASC");
+}
 
-  $rows = array();
-  while ($node = db_fetch_object($result)) {
-    $rows[] = array($node->id, theme('task_summary', $node), '', '', '', '');
+/**
+ * Implementation of hook_settings
+ */
+function task_settings() {
+  drupal_set_title(t('Task configuration'));
+  
+  // Check if the task attribute vocabularies exist, if not create them.
+  $vocabularies = taxonomy_get_vocabularies('task');
+  if (empty($vocabularies)) {
+    _task_create_attributes();
   }
 
-  $tasks = theme('table', $header, $rows, array('id' => 'tasks_overview'));
+  if (variable_get('task_per_page', 20) == 0) {
+    drupal_set_message('The maximum tasks per page must be greater than 0. Restoring the default of 20 tasks per page.', 'error');
+    variable_set('task_per_page', 20);
+  }
 
-  $output .= '<br /> <div class="tasks">' .
-             form_group(t('All tasks', array('%user' => $user->name)), $tasks) .
-             '</div>';
+  $output .= form_textfield('Maximum tasks per page', 'task_per_page',
+                            variable_get('task_per_page', 20), 4, 4,
+                            'The maximum number of tasks to show when listing tasks.');
+
+  $output .= form_select('Task date format', 'task_date_format',
+                         variable_get('task_date_format', 1),
+                         array(t('Short'), t('Medium'), t('Long')),
+                         'The Drupal date format to use for tasks.');
 
   return $output;
 }
 
 /**
+ * Implementation of hook_taxonomy().
+ */
+function task_taxonomy($op, $type, $object) {
+  if ($op == 'delete' && $type == 'vocabulary' &&
+      $object->vid == _task_attribute_get_vid(strtolower($object->name))) {
+    variable_del('task_attribute_vocabularies');
+    _task_attribute_get_vocabularies();
+  }
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function task_help($section) {
+  switch ($section) {
+    case 'admin/modules#description':
+      // This description is shown in the listing at admin/modules.
+      return t('Manages tasks in a simple, yet powerful way.');
+    case 'node/add#task':
+      // This description shows up when users click "create content."
+      return t('A task can be anything from a simple to-do item to a more complicated project related task.');      
+  }
+}
+
+/**
  * Menu callback; display a list of tasks.
  */
-// TODO: _task_page_user?
-function task_page_user() {
+function task_list_page($query = NULL) {
   global $user;
-  if (!$user->uid) {
+  if ((arg(2) == 'user') && (!$user->uid)) {
     return t('You need to log in to see your tasks.');
   }
 
-  $header = array(
-    array('data' => t('#')),
-    array('data' => t('Summary')),
-    array('data' => t('Priority')),
-    array('data' => t('Status')),
-    array('data' => t('Due Date')),
-    array('data' => t('Category'))
-  );
+  // Get the column layout for the current user.
+  $layout = _task_get_column_layout();
 
-  // Fetch user's tasks.
-  $result = db_query("SELECT n.nid, n.title, n.body, n.format, t.id FROM {node} n INNER JOIN {task} t ON n.nid = t.nid WHERE n.status = 1 AND n.uid='%d' ORDER BY t.id ASC", $user->uid);
-
-  if (!db_num_rows($result)) {
-    // TODO: See project.module's project_page_user. Should I do the CURRENT_USER thing?
-    return t('You have no projects.');
+  // Get the column that will sorted.
+  $sort_column = array();
+  $sort_key = 0;  // the column in $layout that will be sorted
+  $get_key  = 0;  // the column in $layout that will be sorted based on $_GET 
+  
+  foreach ($layout as $key => $column) {
+    if (array_key_exists('sort', $column)) {
+      $sort_key = $key;
+    }
+    
+    if (!empty($_GET['order']) && ($_GET['order'] == $column['data'])) {
+      $get_key = $key;
+    }
+  }
+  if ($sort_key && !$get_key) {
+    $sort_column = $layout[$sort_key];
+  }
+  else {
+    unset($layout[$sort_key]['sort']);
+    $layout[$get_key]['sort'] = (!empty($_GET['sort'])) ? $_GET['sort'] : 'asc';
+    $sort_column = $layout[$get_key];
   }
 
-  // Show the current user's tasks only
+  $extra_sql = '';
+  if (arg(2) == 'user') {
+    // Fetch only the user's tasks.
+    $extra_sql .= " AND n.uid = ". $user->uid;
+  }
+  
+// FIX: If a task is in a private group, don't list it here.
+
+  if ($sort_column['vid']) {
+    $sql = "SELECT n.nid ".
+           "FROM {task} t ".
+             "INNER JOIN {node} n ON n.nid = t.nid ".
+             "LEFT JOIN {term_node} tn ON tn.nid = n.nid ".
+             "LEFT JOIN {term_data} td ON tn.tid = td.tid ".
+             "LEFT JOIN {term_hierarchy} th ON td.tid = th.tid ".
+             "LEFT JOIN {vocabulary} v ON v.vid = td.vid ".
+           "WHERE n.status = 1 AND v.vid = ". $sort_column['vid']. $extra_sql;
+  }
+  else {
+    $sql = "SELECT n.nid ".
+           "FROM {task} t ".
+             "INNER JOIN {node} n ON n.nid = t.nid ".
+//             "INNER JOIN {users} u ON u.uid = t.assigned ".
+           "WHERE n.status = 1". $extra_sql;
+  }
+  $header    = $layout;
+  unset($header['vid']);
+  $sql      .= tablesort_sql($header);
+  $sql_count = "SELECT COUNT(n.nid) FROM {task} t INNER JOIN {node} n ON n.nid = t.nid";
+
   $rows = array();
-  while ($node = db_fetch_object($result)) {
-    $rows[] = array($node->id, theme('task_summary', $node), '', '', '', '');
+
+  $limit = intval(variable_get('task_per_page', 20));
+  if (!$limit) {
+    variable_set('task_per_page', 20);
   }
 
-  $tasks = theme('table', $header, $rows, array('id' => 'tasks_overview'));
+// TODO: Create a theme_task_list().
+  
+  $result = pager_query($sql, $limit, 0, $sql_count);
+  if (db_num_rows($result)) {
+    while ($task = db_fetch_object($result)) {
+      $row = array();
 
-  $output .= '<br /> <div class="tasks">' .
-             form_group(t('%user\'s tasks', array('%user' => $user->name)), $tasks) .
-             '</div>';
+      foreach ($layout as $column) {
+        $row[] = _task_get_column_data($column, $task->nid);      
+      }
 
+      $row = array('data' => $row); //, 'class' => $class);
+      $rows[] = $row;
+    }
+    
+    if ($pager = theme("pager", NULL, 20, 0, $sort_column + tablesort_pager())) {
+      $rows[] = array(array('data' => $pager, 'colspan' => count($header)));
+    }    
+  }
+  else {
+    $rows[] = array(array('data' => t('No tasks found.'), 'colspan'=> 8));
+  }
+
+  $output = '<div class="task">';
+  $output .= theme('table', $header, $rows);
+  $output .= '</div>';
   return $output;
 }
 
 /**
- * Theme the task summary page.
+ *
  */
-function theme_task_summary($node) {
-  return l($node->title, "node/$node->nid");
+function task_main_page() {
+  global $user;
+  if ((arg(1) == 'user') && (!$user->uid)) {
+    return t('You need to log in to see your tasks.');
+  }
+
+  drupal_set_message('TODO');
+//  $sections = array(t('Past Due'), t('Up Coming'), t('Completed'));
+  
+  $output = '';
+  if (arg(1) == 'user') {
+    $output .= l('Click here', 'task/list/user').  ' for a list of your tasks.';
+  }
+  else {
+    $output .= l('Click here', 'task/list').  ' for a list of all tasks.';
+  }
+  return $output;
 }
 
 /**
- * Returns the vocabulary for the specified task attribute (status, priority,
- * category) if it exists, otherwise it is created.
+ *
  */
-function _task_get_vid($attr) {
-  $vid = variable_get('task_'.$attr.'_vocabulary', '');
-  if (empty($vid)) {
-    // Check to see if the task vocabulary exists
-    $vid = db_result(db_query("SELECT vid FROM {vocabulary} WHERE module='%s' AND name='%s'", 'task', $attr));
-    if (!$vid) {
-      $vocabulary = taxonomy_save_vocabulary(array('name' => ucfirst($attr), 'multiple' => '0', 'required' => '1', 'hierarchy' => '1', 'relations' => '0', 'module' => 'task', 'nodes' => array('task')));
-      $vid = $vocabulary['vid'];
+function task_configure_page() {
+  return drupal_set_message('TODO');
+}
+
+/**
+ * Theme the task list.
+ */
+function theme_task_list($node) {
+  return l($node->title, "node/$node->nid");
+}
+
+//---------------------------------------------------------------------------
+// Private helper functions
+//---------------------------------------------------------------------------
+
+/**
+ * Maps the PHP date format to jsCalendar's date format.
+ * 
+ * @return
+ *   An array with the PHP and jsCalendar date formats.
+ */
+function _task_get_date_format() {
+  // Date settings: possible date formats
+  // *Note*: These comes from system_view_general() in system.module.
+  $dateshort  = array('Y-m-d H:i' => '%Y-%m-%d %H:%M',
+                      'm/d/Y - H:i' => '%m/%d/%Y - %H:%M',
+                      'd/m/Y - H:i' => '%d/%m/%Y - %H:%M',
+                      'Y/m/d - H:i' => '%Y/%m/%d - %H:%M',
+                      'm/d/Y - g:ia' => '%m/%d/%Y - %l:%M%P',
+                      'd/m/Y - g:ia' => '%d/%m/%Y - %l:%M%P',
+                      'Y/m/d - g:ia' => '%Y/%m/%d - %l:%M%P',
+                      'M j Y - H:i' => '%b %e %Y - %H:%M',
+                      'j M Y - H:i' => '%e %b %Y - %H:%M',
+                      'Y M j - H:i' => '%Y %b %e - %H:%M',
+                      'M j Y - g:ia' => '%b %e %Y - %l:%M%P',
+                      'j M Y - g:ia' => '%e %b %Y - %l:%M%P',
+                      'Y M j - g:ia' => '%Y %b %e - %l:%M%P');
+  $datemedium = array('D, Y-m-d H:i' => '%a, %Y-%m-%d %H:%M',
+                      'D, m/d/Y - H:i' => '%a, %m/%d/%Y - %H:%M',
+                      'D, d/m/Y - H:i' => '%a, %d/%m/%Y - %H:%M',
+                      'D, Y/m/d - H:i' => '%a, %Y/%m/%d - %H:%M',
+                      'F j, Y - H:i' => '%B %e, %Y - %H:%M',
+                      'j F, Y - H:i' => '%e %B, %Y - %H:%M',
+                      'Y, F j - H:i' => '%Y, %B %e - %H:%M',
+                      'D, m/d/Y - g:ia' => '%a, %m/%d/%Y - %l:%M%P',
+                      'D, d/m/Y - g:ia' => '%a, %d/%m/%Y - %l:%M%P',
+                      'D, Y/m/d - g:ia' => '%a, %Y/%m/%d - %l:%M%P',
+                      'F j, Y - g:ia' => '%B %e, %Y - %l:%M%P',
+                      'j F, Y - g:ia' => '%e %B, %Y - %l:%M%P',
+                      'Y, F j - g:ia' => '%Y, %B %e - %l:%M%P');
+  $datelong   = array('l, F j, Y - H:i' => '%A, %B %e, %Y - %H:%M',
+                      'l, j F, Y - H:i' => '%A, %e %B, %Y - %H:%M',
+                      'l, Y,  F j - H:i' => '%A, %Y, %B %e - %H:%M',
+                      'l, F j, Y - g:ia' => '%A, %B %e, %Y - %l:%M%P',
+                      'l, j F, Y - g:ia' => '%A, %e %B, %Y - %l:%M%P',
+                      'l, Y,  F j - g:ia' => '%A, %Y, %B %e - %l:%M%P');
+
+  switch (variable_get('task_date_format', 1)) {
+    case 0: // short
+      $date_format = variable_get('date_format_short', $dateshort[0]);
+      return array($date_format, $dateshort[$date_format]);
+    case 1: // medium
+      $date_format = variable_get('date_format_medium', $datemedium[0]);
+      return array($date_format, $datemedium[$date_format]);
+    case 2: // long
+      $date_format = variable_get('date_format_long', $datelong[0]);
+      return array($date_format, $datelong[$date_format]);
+  }
+}
+
+/**
+ * Format the task due date with the given or configured format.
+ * 
+ * @param $timestamp
+ *   The exact date to format, as a UNIX timestamp.
+ * @param $type
+ *   The format to use. Can be "small", "medium" or "large" for the preconfigured
+ *   date formats. This will override the configured date format.
+ * @return
+ *   A translated date string in the requested format.
+ */
+function _task_format_duedate($timestamp, $type = NULL) {
+  if ($type) {
+    switch ($type) {
+      case 'small':
+      case 'medium':
+      case 'large':
+        break;
+      default:
+        $type = NULL;
     }
-    variable_set('task_'.$attr.'_vocabulary', $vid);
+  }
+  if (!$type) {
+    switch (variable_get('task_date_format', 1)) {
+      case 0:  $type = 'small';  break;
+      case 1:  $type = 'medium'; break;
+      case 2:  $type = 'large';  break;
+    }
+  }
+  return (!empty($timestamp)) ? format_date($timestamp, $type) : '';
+}
+
+/**
+ * Creates the default task attribute vocabularies and terms.
+ * 
+ * @return
+ *   An array of each vocabulary name and id created (ex: 'status' => vid). 
+ */
+function _task_create_attributes() {
+  //  [vocabularies]              [terms]
+  //      [weight]
+  $vocabularies = array(
+      'status' => array(
+                -4,        
+                array('name' => t('Canceled'),    'vid' => 0, 'weight' => -10),
+                array('name' => t('Completed'),   'vid' => 0, 'weight' => -9),
+                array('name' => t('In Progress'), 'vid' => 0, 'weight' => -8),
+                array('name' => t('Not Started'), 'vid' => 0, 'weight' => -7),
+                array('name' => t('Postponed'),   'vid' => 0, 'weight' => -6)),
+      'priority' => array(                           
+                -2,
+                array('name' => t('Low'),         'vid' => 0, 'weight' => -10),
+                array('name' => t('Medium'),      'vid' => 0, 'weight' => -9),
+                array('name' => t('High'),        'vid' => 0, 'weight' => -8)),
+      'category' => array(                           
+                0,
+                array('name' => t('To-do'),       'vid' => 0, 'weight' => -10))
+  );
+  $vids = array();
+  
+  foreach ($vocabularies as $voc => $terms) {
+    // Check to see if the task attribute vocabulary exists in the database.
+    $vid = db_result(db_query("SELECT vid FROM {vocabulary} WHERE module='%s' AND name='%s'", 'task', ucfirst($voc)));
+    if (!$vid) {
+      // Nope, create the vocabulary.
+      list($status, $object) = array_values(taxonomy_save_vocabulary(array('name' => ucfirst($voc), 'weight' => array_shift($terms), 'multiple' => 0, 'required' => 1, 'hierarchy' => 1, 'relations' => 0, 'module' => 'task', 'nodes' => array('task'))));
+      _task_taxonomy_set_message($status, $object);
+      $vid = $object['vid'];
+      
+      // Create the default terms for the vocabulary.
+      foreach ($terms as $term) {
+        $term['vid'] = $vid;
+        list($status, $object) = array_values(taxonomy_save_term($term));
+        _task_taxonomy_set_message($status, $object);                        
+      }
+    }
+    $vids[$voc] = $vid;
+  }   
+  return $vids;
+}
+
+/**
+ * Gets the vocabulary id for the specified task attribute.
+ * 
+ * @param $attribute
+ *   The name of the task attribute (ex: 'status').
+ * @return
+ *   The vocabulary id for the specified task attribute, or -1 if the task
+ *   attribute is invalid. 
+ */
+function _task_attribute_get_vid($attribute) {
+  switch (strtolower($attribute)) {
+    case 'status':
+    case 'priority':
+    case 'category':
+      break;
+    default:
+      return -1;
   }
 
-  return $vid;
+  // Get the task attribute vocabulary id out of the database.
+  $vid = db_result(db_query("SELECT vid FROM {vocabulary} WHERE module='%s' AND name='%s'", 'task', ucfirst(strtolower($attribute))));
+  if (!$vid) {
+    $vids = _task_create_attributes();
+    $vid  = $vids[strtolower($attribute)];
+  }
+  return $vid;  
+}
+
+/**
+ * Gets the vocabularies for the all the task attributes.
+ * 
+ * @return
+ *   An array of the vocabulary id's and objects for all the task attributes.
+ */
+function _task_attribute_get_vocabularies() {
+  $vids = variable_get('task_attribute_vocabularies', array());
+  if (empty($vids)) {
+    $vids[] = _task_attribute_get_vid('status');
+    $vids[] = _task_attribute_get_vid('priority');
+    $vids[] = _task_attribute_get_vid('category');
+    
+    variable_set('task_attribute_vocabularies', $vids);
+  }
+  
+  foreach ($vids as $vid) {
+    $voc = taxonomy_get_vocabulary($vid);
+    $vocs[$vid] = $voc;
+  }
+  
+  return $vocs;
+}
+
+/**
+ * Prints a taxonomy created/updated/deleted message to the admin only.
+ */
+function _task_taxonomy_set_message($status, $object) {
+  global $user;
+  // Only show these messages to the admin.
+  if ($user->uid == 1) {
+    switch ($status) {
+      case SAVED_NEW:
+        drupal_set_message(t('Created new term %name.', array('%name' => theme('placeholder', $object['name']))));
+        break;
+      case SAVED_UPDATED:
+        drupal_set_message(t('Updated term %name.', array('%name' => theme('placeholder', $object['name']))));
+        break;
+      case SAVED_DELETED:
+        drupal_set_message(t('Deleted term %name.', array('%name' => theme('placeholder', $term_new['name']))));
+        break;
+    }
+  }
+}
+
+/**
+ * Creates the default task columns.
+ * 
+ * @param $columns
+ *   The columns to create.
+ * @param $default
+ *   Make the specified columns the default.
+ * @return
+ *   An array of the column id's.
+ */
+function _task_create_columns($columns = array(), $default = FALSE) {
+  $layout = array();
+    
+  if (empty($columns)) {
+    $default_layout = variable_get('task_list_default_layout', array());
+    if (empty($default_layout)) {   
+      $default_columns = array(
+          array('data' => t('Id'),       'field' => 't.tid',     'weight' => -10),
+          array('data' => t('Summary'),  'field' => 'n.title',   'weight' => -9),
+          array('data' => t('Status'),   'field' => 'td.weight', 'weight' => -8,
+            'vid' => _task_attribute_get_vid('status')),
+          array('data' => t('Priority'), 'field' => 'td.weight', 'weight' => -7,
+            'vid' => _task_attribute_get_vid('priority')),
+          array('data' => t('Due Date'), 'field' => 't.duedate', 'weight' => -6,
+            'sort' => 'desc'),
+          array('data' => t('Category'), 'field' => 'td.weight', 'weight' => -5,
+            'vid' => _task_attribute_get_vid('category'))           
+      );
+      $columns = $default_columns;
+      $default = TRUE;
+    }
+    else {
+      return $default_layout;
+    }
+  }
+
+  foreach ($columns as $column) {
+    // Check to see if the task column exists in the database.
+    $cid = db_result(db_query("SELECT cid FROM {task_column} WHERE name = '%s' ORDER BY weight", $column['data']));
+    if (!$cid) {
+      // If not, create it.
+      $cid = db_next_id('task_column_id');
+      db_query("INSERT INTO {task_column} (cid, vid, name, description, weight, db_sort, db_field) VALUES (%d, %d, '%s', '%s', %d, %d, '%s', '%s')", $cid, $column['vid'], $column['data'], '', $column['weight'], $column['sort'], $column['field']);
+    }
+    unset($column['weight'], $column['description']);
+    $layout[$cid] = $column;
+  }
+  if ($default) {    
+    variable_set('task_list_default_layout', array_values($layout));
+  }
+  return $layout;   
+}
+
+/**
+ * Gets the task column layout for each user.
+ *
+ * @return
+ *   An array containing each column name, database field, sort order,
+ *   and vid (if the column is a vocabulary).
+ */
+function _task_get_column_layout() {
+  global $user;
+
+  // Get the users layout, if exists. 
+  $layout = db_result(db_query("SELECT layout FROM {task_column_layout} WHERE uid=%d", $user->uid));
+  if (!empty($layout)) {
+    return unserialize($layout);
+  }
+  else {
+    // The user didn't exist, so add the user with the default layout.
+    $default_layout = variable_get('task_list_default_layout', array());
+    if (empty($default_layout)) {
+      // Create the default layout since it doesn't exist.
+      $default_layout = array_values(_task_create_columns());
+    }  
+
+    db_query("INSERT INTO {task_column_layout} (uid, layout) VALUES (%d, '%s')", $user->uid, serialize($default_layout));
+    return $default_layout;
+  }
+}
+
+/**
+ * Gets the task data for each column.
+ *
+ * @param $column
+ *   The column to get the data for.
+ * @param $nid
+ *   The node id for the column.
+ * @return
+ *   
+ */
+function _task_get_column_data($column, $nid) {
+  if ((empty($column)) || (!$nid)) {
+    return array();
+  }
+
+  if ($column['vid']) {
+    $sql = "SELECT td.name ".
+           "FROM {task} t ".
+             "INNER JOIN {node} n ON n.nid = t.nid ".
+             "LEFT JOIN {term_node} tn ON tn.nid = n.nid ".
+             "LEFT JOIN {term_data} td ON tn.tid = td.tid ".
+             "LEFT JOIN {term_hierarchy} th ON td.tid = th.tid ".
+             "LEFT JOIN {vocabulary} v ON v.vid = td.vid ".
+           "WHERE n.status = 1 AND v.vid = ". $column['vid'] ." AND n.nid = ". $nid;
+  }
+  else {
+    $sql = "SELECT ". $column['field']. " ".
+           "FROM {task} t ".
+             "INNER JOIN {node} n ON n.nid = t.nid ".
+//             "INNER JOIN {users} u ON u.uid = t.assigned ".
+           "WHERE n.status = 1 AND n.nid = ". $nid;
+  }
+  $sql .= tablesort_sql($column);
+  $output = '';
+  
+  $data = db_result(db_query($sql));
+//  if ($column['data'] == 'Due Date') {
+  if ($column['field'] == 't.duedate') {
+// TODO: Consider only showing the date and not the time on the task list page.
+    $data = check_plain((!empty($data)) ? _task_format_duedate($data, 'small') : 'None');
+  }
+  if ($column['data'] == 'Summary') {
+    $data = l(check_plain($data), 'node/'. $nid);
+  }
+  $output .= $data;
+  
+  return $output;
 }
 
 ?>
