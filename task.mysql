@@ -10,9 +10,9 @@ CREATE TABLE task (
 -- Dates:
 -- node.created == created int(11) NOT NULL default '0',
 -- node.changed == updated int(11) NOT NULL default '0',
-  started int(11) NOT NULL default '0',
   completed int(11) NOT NULL default '0',
   duedate int(11) NOT NULL default '0',
+  progress tinyint(1) unsigned NOT NULL default '0',
   PRIMARY KEY (tid),
   KEY task_nid (nid)
 ) TYPE=MyISAM;
@@ -23,8 +23,10 @@ CREATE TABLE task (
 
 CREATE TABLE task_column_layout (
   uid int(10) unsigned NOT NULL default '0',
+  sid int(10) unsigned NOT NULL default '0',
   layout text NOT NULL default '',
-  PRIMARY KEY (uid)
+  KEY uid (uid),
+  KEY sid (sid),
 ) TYPE=MyISAM;
 
 --
@@ -33,11 +35,44 @@ CREATE TABLE task_column_layout (
 
 CREATE TABLE task_column (
   cid int(10) unsigned NOT NULL default '0',
-  vid int(10) unsigned NOT NULL default '0',
+  name varchar(255) NOT NULL default '',
+  description longtext,
+  db_field varchar(255) NOT NULL default '',
+  weight tinyint(4) NOT NULL default '0',
+  PRIMARY KEY (cid)
+) TYPE=MyISAM;
+
+--
+-- Table structure for table 'task_section_layout'
+--
+
+CREATE TABLE task_section_layout (
+  uid int(10) unsigned NOT NULL default '0',
+  layout text NOT NULL default '',
+  PRIMARY KEY (uid)
+) TYPE=MyISAM;
+
+--
+-- Table structure for table 'task_section'
+--
+
+CREATE TABLE task_section (
+  sid int(10) unsigned NOT NULL default '0',
   name varchar(255) NOT NULL default '',
   description longtext,
   weight tinyint(4) NOT NULL default '0',
-  db_sort varchar(4) NOT NULL default '',
-  db_field varchar(32) NOT NULL default '',
-  PRIMARY KEY (cid)
+  sort_column varchar(255) NOT NULL default '',
+  tasks_per_section tinyint(4) NOT NULL default '0',
+  PRIMARY KEY (sid)
+) TYPE=MyISAM;
+
+--
+-- Table structure for table 'task_filter'
+--
+
+CREATE TABLE task_filter (
+  fid int(10) unsigned NOT NULL default '0',
+  sid int(10) unsigned NOT NULL default '0',
+  filter text NOT NULL default '',
+  PRIMARY KEY (fid)
 ) TYPE=MyISAM;
