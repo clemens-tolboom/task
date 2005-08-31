@@ -1,0 +1,28 @@
+.task-main-header .links {
+  text-align: right;
+  font-size: 0.8em;
+}
+.task-main-header .date {
+  text-align: right;
+  font-size: 0.8em;
+  padding-top: 0.3em;
+}
+
+.task-list tr.odd {
+  background-color: #fff;
+}
+
+.task-list td.summary {
+  width: 250px;
+}
+.task-list td.progress {
+  text-align: center;
+}
+
+.task-list table {
+  width: 100%;
+}
+.task-list td {
+  padding: 0.4em 0.1em;
+  vertical-align: top;
+}
