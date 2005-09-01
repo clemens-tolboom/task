@@ -1094,15 +1094,15 @@ function _task_create_sections($sections = array()) {
   $layout = array();
   if (empty($sections)) {
     $default_sections = array(
-        array('name' => t('Past Due'),  'weight' => -10, 'tasks_per_section' => 20,
+        array('name' => t('Past Due'),  'weight' => -10, 'tasks_per_section' => 10,
               'sort_column' => array('order' => 'Due', 'sort' => 'asc')),
-        array('name' => t('Pending'),   'weight' => -9,  'tasks_per_section' => 20,
+        array('name' => t('Pending'),   'weight' => -9,  'tasks_per_section' => 10,
               'sort_column' => array('order' => 'Due', 'sort' => 'asc')),
-        array('name' => t('Up Coming'), 'weight' => -8,  'tasks_per_section' => 20,
+        array('name' => t('Up Coming'), 'weight' => -8,  'tasks_per_section' => 10,
               'sort_column' => array('order' => 'Due', 'sort' => 'asc')),
-        array('name' => t('Completed'), 'weight' => -7,  'tasks_per_section' => 20,
+        array('name' => t('Completed'), 'weight' => -7,  'tasks_per_section' => 10,
               'sort_column' => array('order' => 'Completed', 'sort' => 'desc')),
-        array('name' => t('All'),       'weight' => -6,  'tasks_per_section' => 20,
+        array('name' => t('All'),       'weight' => -6,  'tasks_per_section' => 10,
               'sort_column' => array('order' => 'Id', 'sort' => 'desc'))
     );
     $sections = $default_sections;
