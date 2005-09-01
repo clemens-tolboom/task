@@ -188,7 +188,7 @@ function task_form(&$node) {
       {
         inputField  : "edit-duedate",
         button      : "edit-duedate-trigger",
-        ifFormat    : "'. $date_format[1] .'",
+        ifFormat    : "'. $date_format .'",
         timeFormat  : "'. $time_format .'",
         showsTime   : true,
         showOthers  : true,
