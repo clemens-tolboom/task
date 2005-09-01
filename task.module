@@ -156,10 +156,23 @@ function task_form(&$node) {
   $attr_group .= '</span>';
   $output .= form_group_collapsible(t('Task atrributes'), $attr_group);
 
-  $date_format = _task_get_date_format('medium');
+  $date_format = variable_get('date_format_medium', 'D, m/d/Y - H:i');
+  // Convert the date format to jsCalendar's format.
+  $date_format = str_replace(
+      array( 'Y',  'm',  'd',  'H',  'i',  'M',  'j',  'g',  'a',  'D',  'F',  'l'),
+      array('%Y', '%m', '%d', '%H', '%M', '%b', '%e', '%l', '%P', '%a', '%B', '%A'),
+      $date_format);
+  // Make one more pass to catch any double replaces.
+  $date_format = str_replace(array('%%b', '%%A'), array('%M', '%l'), $date_format);
+  
   $time_format = (strpos($date_format[0], 'g') === false) ? "24" : "12";
   if (!form_get_errors()) {
-    $duedate = format_date($node->duedate);
+    if ($node->duedate) {
+      $duedate = format_date($node->duedate);
+    }
+    else {
+      $duedate = '';
+    }
   }
   else {
     $duedate = $node->duedate;
@@ -864,64 +877,6 @@ function theme_task_list($tasks, $layout, $sort_column, $tasks_per_section) {
 //---------------------------------------------------------------------------
 // Private helper functions
 //---------------------------------------------------------------------------
-
-/**
- * Maps the PHP date format to jsCalendar's date format.
- * 
- * @param $type
- *   The format to use. Can be "small", "medium" or "large" for the preconfigured
- *   date formats. This will override the configured date format.
- * @return
- *   An array with the PHP and jsCalendar date formats.
- */
-function _task_get_date_format($type = 'medium') {
-  // Date settings: possible date formats
-  // *Note*: These comes from system_view_general() in system.module.
-  $dateshort  = array('Y-m-d H:i' => '%Y-%m-%d %H:%M',
-                      'm/d/Y - H:i' => '%m/%d/%Y - %H:%M',
-                      'd/m/Y - H:i' => '%d/%m/%Y - %H:%M',
-                      'Y/m/d - H:i' => '%Y/%m/%d - %H:%M',
-                      'm/d/Y - g:ia' => '%m/%d/%Y - %l:%M%P',
-                      'd/m/Y - g:ia' => '%d/%m/%Y - %l:%M%P',
-                      'Y/m/d - g:ia' => '%Y/%m/%d - %l:%M%P',
-                      'M j Y - H:i' => '%b %e %Y - %H:%M',
-                      'j M Y - H:i' => '%e %b %Y - %H:%M',
-                      'Y M j - H:i' => '%Y %b %e - %H:%M',
-                      'M j Y - g:ia' => '%b %e %Y - %l:%M%P',
-                      'j M Y - g:ia' => '%e %b %Y - %l:%M%P',
-                      'Y M j - g:ia' => '%Y %b %e - %l:%M%P');
-  $datemedium = array('D, Y-m-d H:i' => '%a, %Y-%m-%d %H:%M',
-                      'D, m/d/Y - H:i' => '%a, %m/%d/%Y - %H:%M',
-                      'D, d/m/Y - H:i' => '%a, %d/%m/%Y - %H:%M',
-                      'D, Y/m/d - H:i' => '%a, %Y/%m/%d - %H:%M',
-                      'F j, Y - H:i' => '%B %e, %Y - %H:%M',
-                      'j F, Y - H:i' => '%e %B, %Y - %H:%M',
-                      'Y, F j - H:i' => '%Y, %B %e - %H:%M',
-                      'D, m/d/Y - g:ia' => '%a, %m/%d/%Y - %l:%M%P',
-                      'D, d/m/Y - g:ia' => '%a, %d/%m/%Y - %l:%M%P',
-                      'D, Y/m/d - g:ia' => '%a, %Y/%m/%d - %l:%M%P',
-                      'F j, Y - g:ia' => '%B %e, %Y - %l:%M%P',
-                      'j F, Y - g:ia' => '%e %B, %Y - %l:%M%P',
-                      'Y, F j - g:ia' => '%Y, %B %e - %l:%M%P');
-  $datelong   = array('l, F j, Y - H:i' => '%A, %B %e, %Y - %H:%M',
-                      'l, j F, Y - H:i' => '%A, %e %B, %Y - %H:%M',
-                      'l, Y,  F j - H:i' => '%A, %Y, %B %e - %H:%M',
-                      'l, F j, Y - g:ia' => '%A, %B %e, %Y - %l:%M%P',
-                      'l, j F, Y - g:ia' => '%A, %e %B, %Y - %l:%M%P',
-                      'l, Y,  F j - g:ia' => '%A, %Y, %B %e - %l:%M%P');
-
-  switch ($type) {
-    case 'short':
-      $date_format = variable_get('date_format_short', $dateshort[0]);
-      return array($date_format, $dateshort[$date_format]);
-    case 'medium':
-      $date_format = variable_get('date_format_medium', $datemedium[0]);
-      return array($date_format, $datemedium[$date_format]);
-    case 'long':
-      $date_format = variable_get('date_format_long', $datelong[0]);
-      return array($date_format, $datelong[$date_format]);
-  }
-}
 
 /**
  * Creates the default task attribute vocabularies and terms.
