@@ -147,12 +147,12 @@ function task_form(&$node) {
     $attr_group .= implode('', taxonomy_node_form('task', $node));
   }
   
-  $progress = array();
+  $progress_values = array();
   for ($i = 0; $i <= 100; $i+=5) {
-    $progress[$i] = $i. '%';
+    $progress_values[$i] = $i. '%';
   }
-  
-  $attr_group .= form_select(t('Progress'), 'progress', $node->progress, $progress);
+    
+  $attr_group .= form_select(t('Progress'), 'progress', $node->progress, $progress_values);
   $attr_group .= '</span>';
   $output .= form_group_collapsible(t('Task atrributes'), $attr_group);
 
@@ -313,6 +313,89 @@ function task_view(&$node, $teaser = FALSE, $page = FALSE) {
  */
 function theme_task() {
 
+}
+
+/**
+ * Comment callback; Adds task form fields to a comment form.
+ * Note: This will work ONLY if the patch at
+ *       http://drupal.org/node/28255 has been applied.
+ */
+function task_comment($op, $comment, $param = NULL) {  
+  switch ($op) {
+    case 'form pre':
+//    case 'form post':
+      $cid = $comment['cid'];
+      $node = node_load($comment['nid']);
+      if ($node->type == 'task') {
+        if (user_access('access task')) {
+
+// TODO: This comes straight from task_form(), put in a _task_get_attributes_form().
+          $attr_group = '<span class="task-attributes">';
+          // In order to be able to attach taxonomy terms to this node, we need
+          // to display the appropriate form elements.
+          if (function_exists('taxonomy_node_form')) {
+            $attr_group .= implode('', taxonomy_node_form('task', $node));
+          }
+          
+          $progress_values = array();
+          for ($i = 0; $i <= 100; $i+=5) {
+            $progress_values[$i] = $i. '%';
+          }
+          
+          $attr_group .= form_select(t('Progress'), 'progress', $node->progress, $progress_values);
+          $attr_group .= '</span>';
+          $output .= form_group_collapsible(t('Task atrributes'), $attr_group);
+        }
+        return $output;
+      }
+      break;
+    case 'form param':
+      $cid = $comment['cid'];
+      $node = node_load($comment['nid']);
+      if ($node->type == 'task') {
+        return array("enctype" => "multipart/form-data");
+      }
+      break;
+    case 'validate':
+      $cid = $comment['cid'];
+      $node = node_load($comment['nid']);
+      if ($node->type == 'task') {
+
+// TODO: This comes straight from task_validate(), just call it?
+        list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($node->nid, _task_attribute_get_vid('status')));
+        if (($term->name == 'Completed') || ($node->progress == 100)) {
+          $node->completed = _task_user_time();
+        }
+        if (($term->name != 'Completed') && ($node->progress != 100)){
+          $node->completed = 0;
+        }
+        if (($term->name == 'Completed') && ($node->progress != 100)){
+          $node->progess = 100;
+        }  
+        // TODO: Set status to completed if progress is set to 100.
+      }  
+      break;
+    case 'insert':
+      $cid = $comment['cid'];
+      $node = node_load($comment['nid']);
+      if ($node->type == 'task') {
+// TODO: will this work?
+        task_update($node);
+      }
+      break;
+    case 'update':
+      $cid = $comment['cid'];
+      $node = node_load($comment['nid']);
+      if ($node->type == 'task') {
+// TODO: will this work?
+        task_update($node);
+      }
+      break;
+    case 'delete':
+      break;
+    case 'view':
+      break;
+  }
 }
 
 /**
@@ -955,7 +1038,7 @@ function _task_create_columns($columns = array()) {
         array('data' => t('Summary'),   'field' => 'n.title',         'weight' => -9),
         array('data' => t('Status'),    'field' => 'status.weight',   'weight' => -8),
         array('data' => t('Progress'),  'field' => 't.progress',      'weight' => -7),
-        array('data' => t('Priority'),  'field' => 'proirity.weight', 'weight' => -6),
+        array('data' => t('Priority'),  'field' => 'priority.weight', 'weight' => -6),
         array('data' => t('Category'),  'field' => 'category.weight', 'weight' => -5),
         array('data' => t('Author'),    'field' => 'u.name',          'weight' => -4),
         array('data' => t('Created'),   'field' => 'n.created',       'weight' => -3),
