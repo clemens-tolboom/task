@@ -295,8 +295,6 @@ function task_view(&$node, $teaser = FALSE, $page = FALSE) {
 
     $output = '<div class="task">';
 
-// TODO: The updated date isn't getting updated when the node is edited.    
-
     $rows   = array();
     $rows[] = array(t('Due Date:'), check_plain($duedate ? $duedate : 'None'));
     $rows[] = array(t('Created:'), check_plain($created ? $created : 'None'));
@@ -761,7 +759,7 @@ function task_configure_page() {
     return drupal_access_denied();
   }
 
-  drupal_set_message('TODO: Add functionality to this page.');
+  drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
   $output = '';
 
 // Initial design, needs cleaning up...
@@ -839,8 +837,8 @@ function task_configure_page() {
  *
  */
 function task_filter_page() {
-  drupal_set_message('TODO');
-  $output = '';
+  drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
+  $output = 'TODO';
   return $output;
 }
 
