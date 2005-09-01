@@ -26,7 +26,7 @@ CREATE TABLE task_column_layout (
   sid int(10) unsigned NOT NULL default '0',
   layout text NOT NULL default '',
   KEY uid (uid),
-  KEY sid (sid),
+  KEY sid (sid)
 ) TYPE=MyISAM;
 
 --
