@@ -15,21 +15,12 @@
 /**
  * Provides links to CSS stylesheets and/or JavaScript scripts associated
  * with this module.
- *
- * @param $calendar
- *   Whether or not the jsCalendar includes should get included.
+
  * @return
  *   Various stylesheet and/or script includes.
  */
-function task_html_head($calendar = FALSE) {
+function task_html_head() {
   $output = theme('stylesheet_import', drupal_get_path('module', 'task') .'/task.css','screen');
-
-  if ($calendar == TRUE) {
-    $output .= '<script type="text/javascript" src="'. drupal_get_path('module', 'task') .'/calendar/calendar.js"></script>' . "\n";
-    $output .= '<script type="text/javascript" src="'. drupal_get_path('module', 'task') .'/calendar/calendar-setup.js"></script>' . "\n";
-    $output .= '<script type="text/javascript" src="'. drupal_get_path('module', 'task') .'/calendar/lang/calendar-en.js"></script>' . "\n";
-    $output .= theme('stylesheet_import', drupal_get_path('module', 'task') .'/calendar/skins/aqua/theme.css','screen');
-  }
   return $output;
 }
 
@@ -98,11 +89,11 @@ function task_menu($may_cache) {
                      'access' => user_access('create task'));
 
     $items[] = array('path' => 'task', 'title' => t('tasks'),
-                     'callback' => 'task_main_page',
+                     'callback' => 'task_page',
                      'access' => user_access('access task'),
                      'type' => MENU_NORMAL_ITEM);
     $items[] = array('path' => 'task/user', 'title' => t('my tasks'),
-                     'callback' => 'task_main_page',
+                     'callback' => 'task_page',
                      'access' => $user->uid && user_access('access task'),
                      'type' => MENU_NORMAL_ITEM);
 
@@ -131,7 +122,12 @@ function task_menu($may_cache) {
  * Implementation of hook_form().
  */
 function task_form(&$node) {
-  drupal_set_html_head(task_html_head(TRUE));
+  drupal_set_html_head(task_html_head());
+  // jsCalendar scripts and sytlesheets
+  drupal_add_js(drupal_get_path('module', 'task'). '/calendar/calendar.js');
+  drupal_add_js(drupal_get_path('module', 'task'). '/calendar/calendar-setup.js');
+  drupal_add_js(drupal_get_path('module', 'task'). '/calendar/lang/calendar-en.js');
+  drupal_set_html_head(theme('stylesheet_import', drupal_get_path('module', 'task') .'/calendar/skins/aqua/theme.css', 'screen'));
   $output = '';
 
   // Check if the task attribute vocabularies exist, if not create them.
@@ -140,7 +136,22 @@ function task_form(&$node) {
     _task_create_attributes();
   }
 
-  $attr_group = '<span class="task-attributes">';
+  $output .= task_form_attributes($node);
+  $output .= task_form_dates($node);
+
+  // Now we define the form elements specific to our node type.
+  $output .= form_textarea(t('Body'), 'body', $node->body, 60, 20, '', NULL, TRUE);
+  $output .= filter_form('format', $node->format);
+
+  return $output;
+}
+
+/**
+ * Returns a form for the task attributes. 
+ */
+function task_form_attributes($node) {
+  $output     = '';
+  $attr_group = '';
   // In order to be able to attach taxonomy terms to this node, we need
   // to display the appropriate form elements.
   if (function_exists('taxonomy_node_form')) {
@@ -153,19 +164,31 @@ function task_form(&$node) {
   }
     
   $attr_group .= form_select(t('Progress'), 'progress', $node->progress, $progress_values);
-  $attr_group .= '</span>';
-  $output .= form_group_collapsible(t('Task atrributes'), $attr_group);
+  $output .= form_group_collapsible(t('Task attributes'), $attr_group);
 
+  return $output;
+}
+
+/**
+ * Returns a form for the task dates. 
+ */
+function task_form_dates($node) {
+  $output = '';
+  
   $date_format = variable_get('date_format_medium', 'D, m/d/Y - H:i');
-  // Convert the date format to jsCalendar's format.
+  // Convert the date format to jsCalendar's format (similar to MySQL's format).
   $date_format = str_replace(
-      array( 'Y',  'm',  'd',  'H',  'i',  'M',  'j',  'g',  'a',  'D',  'F',  'l'),
-      array('%Y', '%m', '%d', '%H', '%M', '%b', '%e', '%l', '%P', '%a', '%B', '%A'),
+      array( 'Y',  'm',  'd',  'H',  'i',  'M',  'j',  'g',  'a',  'D',  'F',  'l',
+                'h',  'Z',  'G',  'A',  's',  'U',  'W',  'w',  'y', '\n', '\t'),
+      array('%Y', '%m', '%d', '%H', '%M', '%b', '%e', '%l', '%P', '%a', '%B', '%A',
+               '%I', '%j', '%k', '%p', '%S', '%s', '%W', '%w', '%y', '%n', '%t'),
       $date_format);
   // Make one more pass to catch any double replaces.
-  $date_format = str_replace(array('%%b', '%%A'), array('%M', '%l'), $date_format);
+  $date_format = str_replace(array('%%b', '%%%p', '%%p'),
+                             array( '%M',   '%l',  '%A'),
+                             $date_format);
   
-  $time_format = (strpos($date_format[0], 'g') === false) ? "24" : "12";
+  $time_format = (strpos($date_format, '%P') === false) ? "24" : "12";
   if (!form_get_errors()) {
     if ($node->duedate) {
       $duedate = format_date($node->duedate);
@@ -182,8 +205,11 @@ function task_form(&$node) {
 //      as the user admin.
 
   $date_group .= form_textfield('Due date', 'duedate', $duedate, 40, 40, 'Click the calendar to the right.', array('style' => 'width: 33%;'));
-  $date_group .= form_item('', l(theme_image(drupal_get_path('module', 'task') .'/calendar/calendar.gif', 'Click for calendar', 'Click for calendar'), '#', array('id' => 'edit-duedate-trigger'), NULL, NULL, FALSE, TRUE));
-  $date_group .= form_item('', '<script type="text/javascript">
+  $date_group .= form_item('', l(theme_image(drupal_get_path('module', 'task') .'/calendar/calendar.gif', 'Click for calendar', 'Click for calendar'), $_GET['q']. '#', array('id' => 'edit-duedate-trigger'), NULL, NULL, FALSE, TRUE));
+  $output .= form_group_collapsible(t('Task dates'), $date_group);
+
+  // Setup jsCalendar for the Due Date form field.
+  $output .= '<script type="text/javascript">
     Calendar.setup(
       {
         inputField  : "edit-duedate",
@@ -196,13 +222,7 @@ function task_form(&$node) {
         weekNumbers : true,
         firstDay    : '. variable_get('date_first_day', 0) .'
       }
-    );
-    </script>');
-  $output .= form_group_collapsible(t('Task dates'), $date_group);
-
-  // Now we define the form elements specific to our node type.
-  $output .= form_textarea(t('Body'), 'body', $node->body, 60, 20, '', NULL, TRUE);
-  $output .= filter_form('format', $node->format);
+    );'. "\n</script>\n";
 
   return $output;
 }
@@ -216,7 +236,7 @@ function task_validate(&$node) {
 //  }
 
   // We need a description.
-  if (empty($node->body) && $node->tid) {
+  if (empty($node->body)) {
     form_set_error('body', t('You must add a task description.'));
   }
 
@@ -231,17 +251,50 @@ function task_validate(&$node) {
     }
   }
 
-  list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($node->nid, _task_attribute_get_vid('status')));
-  if (($term->name == 'Completed') || ($node->progress == 100)) {
-    $node->completed = _task_user_time();
+  if (is_array($node->taxonomy)) {
+    $status_vid    = _task_attribute_get_vid('status');
+    $completed_tid = 0;
+
+    // Get the term for this node belonging to the Status vocabulary.
+    $term = NULL;
+    foreach($node->taxonomy as $tid) {
+      $term = taxonomy_get_term($tid);
+      if ($term->vid == $status_vid) {
+        break;
+      }
+    }
+
+    // Get the Completed term's id.  
+    $cterms = taxonomy_get_term_by_name(drupal_strtolower('Completed'));
+    foreach ($cterms as $key => $cterm) {
+      if ($cterm->vid == $term->vid) {
+        $completed_tid = $cterm->tid;
+      }
+    }
+
+    if (in_array($completed_tid, $node->taxonomy)) {
+      // If the status is completed...  
+      if ($node->progress != 100) {
+        // and progress is not 100, then set it to 100.
+        $node->progress = 100;
+      }
+      if ($task->completed == 0) {
+        // and the completed date is not set, then set it to the user's timestamp.
+        $node->completed = _task_user_time();
+      }
+    }
+    else {
+      // If the status is not completed...  
+      if ($node->progress == 100) {
+        // and progress is 100, then reset it back to 0.
+        $node->progress = 0;
+      }
+      if ($task->completed != 0) {
+        // and the completed date is set, then reset it back to 0.
+        $node->completed = 0;
+      }
+    }
   }
-  if (($term->name != 'Completed') && ($node->progress != 100)){
-    $node->completed = 0;
-  }
-  if (($term->name == 'Completed') && ($node->progress != 100)){
-    $node->progess = 100;
-  }  
-// TODO: Set status to completed if progress is set to 100.  
 
   return $node;
 }
@@ -251,14 +304,14 @@ function task_validate(&$node) {
  */
 function task_insert($node) {
   $tid = db_next_id('task_id');
-  db_query("INSERT INTO {task} (tid, nid, completed, duedate, progress) VALUES (%d, %d, %d, %d, %d)", $tid, $node->nid, $node->completed, (!empty($node->duedate)) ? $node->duedate : 0, $node->progress);
+  db_query("INSERT INTO {task} (tid, nid, completed, duedate, progress) VALUES (%d, %d, %d, %d, %d)", $tid, $node->nid, (!empty($node->completed)) ? $node->completed : 0, (!empty($node->duedate)) ? $node->duedate : 0, $node->progress);
 }
 
 /**
  * Implementation of hook_update().
  */
 function task_update($node) {
-  db_query("UPDATE {task} SET completed = %d, duedate = %d, progress = %d WHERE nid = %d", $node->completed, (!empty($node->duedate)) ? $node->duedate : 0, $node->progress, $node->nid);
+  db_query("UPDATE {task} SET completed = %d, duedate = %d, progress = %d WHERE nid = %d", (!empty($node->completed)) ? $node->completed : 0, (!empty($node->duedate)) ? $node->duedate : 0, $node->progress, $node->nid);
 }
 
 /**
@@ -273,7 +326,8 @@ function task_delete($node) {
  */
 function task_load($node) {
   $object = db_fetch_object(db_query("SELECT completed, duedate, progress FROM {task} WHERE nid = %d", $node->nid));
-  $object->duedate = intval($object->duedate);
+  $object->duedate   = intval($object->duedate);
+  $object->completed = intval($object->completed);
   return $object;
 }
 
@@ -285,7 +339,6 @@ function task_view(&$node, $teaser = FALSE, $page = FALSE) {
 
 // TODO: Create a theme_task().
   if (!$teaser) {
-//    $task    = node_load(array('nid' => $node->nid, 'type' => 'task'));
     $task    = node_load($node->nid);
     $duedate = format_date($task->duedate);
 //    $updated = format_date($task->changed);
@@ -339,23 +392,7 @@ function task_comment($op, $comment, $param = NULL) {
       $node = node_load($comment['nid']);
       if ($node->type == 'task') {
         if (user_access('access task')) {
-
-// TODO: This comes straight from task_form(), put in a _task_get_attributes_form().
-          $attr_group = '<span class="task-attributes">';
-          // In order to be able to attach taxonomy terms to this node, we need
-          // to display the appropriate form elements.
-          if (function_exists('taxonomy_node_form')) {
-            $attr_group .= implode('', taxonomy_node_form('task', $node));
-          }
-          
-          $progress_values = array();
-          for ($i = 0; $i <= 100; $i+=5) {
-            $progress_values[$i] = $i. '%';
-          }
-          
-          $attr_group .= form_select(t('Progress'), 'progress', $node->progress, $progress_values);
-          $attr_group .= '</span>';
-          $output .= form_group_collapsible(t('Task atrributes'), $attr_group);
+          $output .= task_form_attributes($node);
         }
         return $output;
       }
@@ -371,19 +408,8 @@ function task_comment($op, $comment, $param = NULL) {
       $cid = $comment['cid'];
       $node = node_load($comment['nid']);
       if ($node->type == 'task') {
-
-// TODO: This comes straight from task_validate(), just call it?
-        list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($node->nid, _task_attribute_get_vid('status')));
-        if (($term->name == 'Completed') || ($node->progress == 100)) {
-          $node->completed = _task_user_time();
-        }
-        if (($term->name != 'Completed') && ($node->progress != 100)){
-          $node->completed = 0;
-        }
-        if (($term->name == 'Completed') && ($node->progress != 100)){
-          $node->progess = 100;
-        }  
-        // TODO: Set status to completed if progress is set to 100.
+// TODO: Is this correct, or does task_validate get called anyway?
+        task_validate($node);
       }  
       break;
     case 'insert':
@@ -672,9 +698,9 @@ function _task_get_query_sql($sid, $orderby, $extra_sql) {
                     "GROUP BY $groupby ". "ORDER BY $orderby";
   $query['count'] = "SELECT COUNT(`n`.nid) FROM `task` t INNER JOIN `node` n ON `n`.nid = `t`.nid WHERE `n`.status = 1";
 
-// Filter substitutes:
-//   %current_timestamp = _task_user_time()
-//   %next_week         = _task_user_time(+7d days)
+  // Filter substitutes:
+  //   %current_timestamp = _task_user_time()
+  //   %next_week         = _task_user_time(+7d days)
   $query['sql'] = str_replace('%current_timestamp',  _task_user_time(), $query['sql']);
   $query['sql'] = str_replace('%next_week', _task_user_time("+7 days"), $query['sql']);
 
@@ -703,7 +729,7 @@ function _task_user_time($time_shift = "") {
 /**
  *
  */
-function task_main_page() {
+function task_page() {
   global $user;
 
   drupal_set_title(t('Tasks'));
@@ -719,17 +745,17 @@ function task_main_page() {
   }
 
   $output = '';
-  $output .= '<div class="task-main-header">';
+  $output .= '<div class="tasks-header">';
   $output .= '<div class="links">';
   $output .= l('Filter', 'task/filter');
   
-  // Don't allow anonymous users to configure the task main page.
+  // Don't allow anonymous users to configure the tasks page.
   if ($user->uid) {
     $output .= ' | '. l('Configure', 'task/configure');
   }
   $output .= '</div>';
 
-  if (variable_get('task_main_page_show_date', 1)) {
+  if (variable_get('tasks_page_show_date', 1)) {
     $output .= '<div class="date">';
     $output .= format_date(_task_user_time(), 'medium');
     $output .= '</div>';
@@ -780,8 +806,8 @@ function task_configure_page() {
 //--
 //... 
 
-  $options_group = form_checkbox('Show date/time on the main task page', 'show-date', 
-                      1, (variable_get('task_main_page_show_date', 1)) ? TRUE : FALSE);
+  $options_group = form_checkbox('Show the current date/time on the tasks page', 'show-date', 
+                      1, (variable_get('tasks_page_show_date', 1)) ? TRUE : FALSE);
   $output .= form_group(t('Options'), $options_group);
 
   $sections_group = '';
@@ -884,7 +910,7 @@ function theme_task_list($tasks, $layout, $sort_column, $tasks_per_section) {
  */
 function _task_create_attributes() {
   //  [vocabularies]              [terms]
-  //      [weight]
+  //            [weight]
   $vocabularies = array(
       'status' => array(
                 -4,        
@@ -937,7 +963,7 @@ function _task_create_attributes() {
  *   attribute is invalid. 
  */
 function _task_attribute_get_vid($attribute) {
-  switch (strtolower($attribute)) {
+  switch (drupal_strtolower($attribute)) {
     case 'status':
     case 'priority':
     case 'category':
@@ -950,9 +976,9 @@ function _task_attribute_get_vid($attribute) {
   $vid = db_result(db_query("SELECT vid FROM {vocabulary} WHERE module='%s' AND name='%s'", 'task', ucfirst(strtolower($attribute))));
   if (!$vid) {
     $vids = _task_create_attributes();
-    $vid  = $vids[strtolower($attribute)];
+    $vid  = $vids[drupal_strtolower($attribute)];
   }
-  return $vid;  
+  return $vid;
 }
 
 /**
