@@ -1,8 +1,8 @@
-.task-main-header .links {
+.tasks-header .links {
   text-align: right;
   font-size: 0.8em;
 }
-.task-main-header .date {
+.tasks-header .date {
   text-align: right;
   font-size: 0.8em;
   padding-top: 0.3em;
