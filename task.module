@@ -93,21 +93,17 @@ function task_menu($may_cache) {
                      'access' => $user->uid && user_access('access task'),
                      'type' => MENU_NORMAL_ITEM);
 
-    $items[] = array('path' => 'task/configure', 'title' => t('Configure task manager'),
-                     'callback' => 'task_configure_page',
-                     'access' => user_access('edit own task'),
-                     'type' => MENU_CALLBACK);
-
-    $items[] = array('path' => 'task/filter', 'title' => t('Filter tasks'),
+    $items[] = array('path' => 'task/filter', 'title' => t('filter'),
                      'callback' => 'task_filter_page',
                      'access' => user_access('access task'),
-                     'type' => MENU_CALLBACK);
+                     'weight' => 1,
+                     'type' => MENU_NORMAL_ITEM);
 
-    $items[] = array('path' => 'task/feed',
-                     'title' => t('task rss feed'),
-                     'callback' => 'task_feed',
-                     'access' => user_access('access content'),
-                     'type' => MENU_CALLBACK);
+    $items[] = array('path' => 'task/configure', 'title' => t('configure'),
+                     'callback' => 'task_configure_page',
+                     'access' => user_access('edit own task'),
+                     'weight' => 2,
+                     'type' => MENU_NORMAL_ITEM);
   }
   else {
     // Code here loads on every page without caching, so it's guaranteed
@@ -331,6 +327,11 @@ function task_load($node) {
 function task_view(&$node, $teaser = FALSE, $page = FALSE) {
   $node = node_prepare($node, $teaser);
 
+  // Breadcrumb navigation
+  $breadcrumbs[] = l(t('Home'), NULL);
+  $breadcrumbs[] = l(t('Tasks'), 'task');
+  drupal_set_breadcrumb($breadcrumbs);
+
   if (!$teaser) {
     $node->body = theme('task', $node);
   }
@@ -487,7 +488,18 @@ function task_settings() {
 function task_page() {
   global $user;
 
+  switch ($_POST['op'] ? $_POST['op'] : arg(1)) {
+    case 'feed':
+      // rss feed
+      drupal_set_header('Content-Type: text/xml; charset=utf-8');
+      print task_get_rss_feed();
+      return;
+  }
+
+  // Breadcrumb navigation
+  $breadcrumbs[] = l(t('Home'), NULL);
   drupal_set_title(t('Tasks'));
+  drupal_set_breadcrumb($breadcrumbs);
 
   if ((arg(1) == 'user') && (!$user->uid)) {
     return t('You need to log in to see your tasks.');
@@ -502,6 +514,10 @@ function task_page() {
   $output = '';
   $output .= '<div class="tasks-header">';
   $output .= '<div class="links">';
+  
+  if ($user->uid && user_access('create task')) {
+      $output .= l('Add task', 'node/add/task'). ' | ';    
+  }
   $output .= l('Filter', 'task/filter');
   
   // Don't allow anonymous users to configure the tasks page.
@@ -540,6 +556,11 @@ function task_configure_page() {
   if (!$user->uid) {
     return drupal_access_denied();
   }
+
+  // Breadcrumb navigation
+  $breadcrumbs[] = l(t('Home'), NULL);
+  drupal_set_title(t('Configure task manager'));
+  drupal_set_breadcrumb($breadcrumbs);
 
   drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
   $output = '';
@@ -623,6 +644,11 @@ function task_configure_page() {
  *
  */
 function task_filter_page() {
+  // Breadcrumb navigation
+  $breadcrumbs[] = l(t('Home'), NULL);
+  drupal_set_title(t('Filter tasks'));
+  drupal_set_breadcrumb($breadcrumbs);
+
   drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
   $output = 'TODO';
   return $output;
@@ -649,7 +675,7 @@ function theme_task($node) {
 //  $rows[] = array(t('Last Updated:'), check_plain($updated ? $updated : 'None'));
   if ($node->completed) {
     $completed = format_date($node->completed);
-    $rows[] = array('<b>'. t('Completed:'). '</b>',  check_plain($completed ? $completed : 'None'));
+    $rows[] = array('<b>'. t('Completed:'). '</b>',  check_plain($completed ? $completed : 'Not completed'));
   }
   $rows[] = array('<b>'. t('Due Date:'). '</b>',     check_plain($duedate ? $duedate : 'None'));
 
@@ -908,8 +934,53 @@ function task_get_task_list($sid, $sort_column, $tasks_per_section) {
 /**
  * 
  */
-function task_feed() {
-  
+function task_get_rss_feed() {
+  global $base_url, $locale;
+
+  $sql       = 'SELECT n.nid FROM {task} t INNER JOIN {node} n ON n.nid = t.nid WHERE n.status = 1 ORDER BY t.tid DESC';
+  $sql_count = 'SELECT COUNT(n.nid) FROM {task} t INNER JOIN {node} n ON n.nid = t.nid WHERE n.status = 1 ORDER BY t.tid DESC';
+  $result    = pager_query(db_rewrite_sql($sql), 20, 0,
+                           db_rewrite_sql($sql_count));
+  while ($node = db_fetch_object($result)) {
+    $task = node_load(array('nid' => $node->nid));
+
+    $duedate   = (!empty($task->duedate)) ? format_date($task->duedate) : 'None';
+    $completed = (!empty($task->completed)) ? format_date($task->completed) : '';
+    
+    list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('status')));
+    $status   = $term->name;
+    list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('priority')));
+    $priority = $term->name;
+    list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('category')));
+    $category = $term->name;
+    
+    $body  = $task->teaser ? $task->teaser : $task->body;
+    $link  = url("node/$task->nid", NULL, NULL, TRUE);
+    $extra = array('pubDate'  => date('r', $node->created),
+                   'comments' => url("node/$task->nid", NULL, NULL, TRUE),
+                   'status'   => $status,
+                   'priority' => $priority,
+                   'category' => $category,
+                   'progress' => $task->progress. '%',
+                   'dueDate'  => check_plain($duedate));
+    if (!empty($task->completed)) {
+      $extra['completedDate'] = check_plain($completed);
+    }
+
+    $items .= format_rss_item($task->title, $link, $body, $extra);
+  }
+
+  $title = variable_get('site_name', 'drupal'). ' - '. t('Tasks Feed');
+  $link = $base_url . '/task/feed';
+  $description = variable_get('site_mission', '');
+
+  $output = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+  $output .= "<!DOCTYPE rss [<!ENTITY % HTMLlat1 PUBLIC \"-//W3C//ENTITIES Latin 1 for XHTML//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml-lat1.ent\">]>\n";
+  $output .= "<rss version=\"2.0\" xml:base=\"". $base_url ."\">\n";
+  $output .= format_rss_channel($title, $link, $description, $items, $locale);
+  $output .= "</rss>\n";
+
+  return $output;
 }
 
 //---------------------------------------------------------------------------
