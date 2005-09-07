@@ -577,6 +577,9 @@ function task_page() {
     $output     .= '&nbsp;';
   }
 
+  // Add the RSS XML icon to the bottom of the page.
+  $output .= '<span>'. theme('xml_icon', url('task/feed')). '</span>';
+
   return $output;
 }
 
