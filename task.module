@@ -22,7 +22,39 @@ function task_help($section) {
       return t('Manages tasks in a simple, yet powerful way.');
     case 'node/add#task':
       // This description shows up when users click "create content."
-      return t('A task can be anything from a simple to-do item to a more complicated project related task.');      
+      return t('A task can be anything from a simple to-do item to a more complicated project related task.');
+    case 'admin/help#task':
+      return t("<h3>Background</h3>
+                <p>The task module let's users manage tasks in a simple, yet powerful way. A task can be anything from a simple to-do item to a more complicated project-related task. It's designed with individuals, small businesses, and institutions in mind. However, it should be able to handle just about any task you can think of.</p>
+                <h3>Task sections</h3>
+                <p>The tasks page contains task sections. These sections use one or more filters to list tasks of importance to the user.</p>
+                <p>There are 5 different sections definied by default.</p><ul>
+                <li>Past Due</li>
+                Tasks that are past their due date.
+                <li>Pending</li>
+                Tasks that will become past due in 1 week.
+                <li>Up Coming</li>
+                Tasks that have a due date greater than a week or no due date at all.
+                <li>Completed</li>
+                Tasks that have been completed.</ul>
+                <h3>Task filters</h3>
+                <p>Task filters are simple to complex patterns to match tasks against. They allow the user to see only which tasks they are interested in.</p>
+                <h3>Task configure page</h3>
+                <p>Users will be able to customize each section, column, and other user-related options on this page.</p>
+                <h3>Adding tasks</h3>
+                <p>To add a task either click the 'Add task' link on the tasks page, or go to 'create content > task'.</p>
+                <p></p>
+                <h3>Updating tasks</h3>
+                <p>There are two ways to update a task.</p><ul>
+                <li>By editing the task itself (if you are the task creater only).</li>
+                <li>By adding a comment and updating the task attributes you are allowed to update. Comments only allow the task creator to update the due date, but you'll be able to update any of the other task attributes.</li></ul>
+                <h3>Deleting tasks</h3>
+                <p>If you are the task creator or the admin you'll be allowed to delete a task by simply going to the task edit page and clicking the 'Delete' button.</p>
+                <h3>Task dates</h3>
+                <p>Just about any form of a date can be entered. Including, but not limited to, '1 week', '2 weeks 2 days', '1 month', and any of the drupal date formats.</p>
+                <h3>Task attributes</h3>
+                <p>These describe a task. The attributes that use the taxonomy.module can be customized on the 'admin/categories' page.</p>
+               ");      
   }
 }
 
@@ -204,7 +236,7 @@ function task_form_dates($node) {
   $date_group .= l(theme_image(drupal_get_path('module', 'task') .'/calendar/calendar.gif', 'Click for calendar', 'Click for calendar'), $_GET['q']. '#', array('id' => 'edit-duedate-trigger'), NULL, NULL, FALSE, TRUE);
   $date_group .= '</td></tr></table>';
   $output .= form_group_collapsible(t('Task dates'), $date_group, FALSE,
-               'To select a due date for this task, click on the calendar above or enter a '. l('valid date', 'task/help', array(), NULL, 'dates'). '. Leave blank for no due date.');
+               'To select a due date for this task, click on the calendar above or enter a '. l('valid date', 'admin/help/task', array(), NULL, 'dates'). '. Leave blank for no due date.');
 
   // Setup jsCalendar for the Due Date form field.
   $output .= '<script type="text/javascript">
@@ -563,7 +595,31 @@ function task_configure_page() {
   drupal_set_breadcrumb($breadcrumbs);
 
   drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
-  $output = '';
+
+  $overview  = '<p>This page will be used to configure various parts of the task manager '.
+               'that each user (except anonymous) can customize to their liking. '.
+               'For instance, you\'ll be able to create, change, and remove sections. '.
+               'This includes the order of the sections as well as the name and description, '.
+               'if any, of each section. Also, you\'ll have control over which task '.
+               'columns are shown and the order of the columns per section. Each '.
+               'section can have multiple filters definied and you\'ll be able to '.
+               'create, modify, and delete any of the filters for each section.</p><br />';
+  $overview .= '<span>This page is a work in progress. The tentative goal is this:</span><br/>';
+  $overview .= '<ul><li>Show only the options and list of sections (below).</li></ul>'; 
+  $overview .= '<span>Section</span><ul>
+               <li>Name</li>
+               <li>Description</li>
+               <li>Weight</li>
+               <li>Configure columns -> link to task/configure/sid (below)</li>
+               <li>Configure filters -> link to task/filter/sid</li>
+               <li>[Save] [Cancel]</li></ul>';
+  $overview .= '<span>Columns</span><ul>
+               <li>Enabled columns:</li>
+               <ul><li>List of columns with weights (like below)</li></ul>
+               <li>Disabled columns:</li>
+               <ul><li>List of columns with weights (like below)</li></ul>
+               <li>[Save] [Cancel]</li></ul>';
+  $output .= form_group_collapsible(t('Overview of page'), $overview, TRUE);
 
 // Initial design, needs cleaning up...
 //Options--folds
@@ -650,7 +706,10 @@ function task_filter_page() {
   drupal_set_breadcrumb($breadcrumbs);
 
   drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
-  $output = 'TODO';
+  $overview = '<p>Eventually, this will be a page will you can define filters to only '.
+             'show the tasks you want to see. You\'ll also be able to save the filters '.
+             'for later reference, if you choose.</p>'; 
+  $output .= form_group_collapsible(t('Overview of page'), $overview, TRUE);
   return $output;
 }
 
