@@ -76,3 +76,16 @@ CREATE TABLE task_filter (
   filter text NOT NULL default '',
   PRIMARY KEY (fid)
 ) TYPE=MyISAM;
+
+--
+-- Table structure for table 'task_changelog'
+--
+
+CREATE TABLE task_changelog (
+  lid int(10) unsigned NOT NULL default '0',
+  nid int(10) unsigned NOT NULL default '0',
+  cid int(10) unsigned NOT NULL,
+  changed int(10) unsigned NOT NULL default '0',
+  changes longtext NOT NULL,
+  PRIMARY KEY (lid)
+) TYPE=MyISAM;
