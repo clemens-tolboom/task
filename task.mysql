@@ -59,7 +59,8 @@ CREATE TABLE task_section_layout (
 CREATE TABLE task_section (
   sid int(10) unsigned NOT NULL default '0',
   name varchar(255) NOT NULL default '',
-  description longtext,
+  description longtext,  
+  status tinyint(2) NOT NULL default '0',
   weight tinyint(4) NOT NULL default '0',
   sort_column varchar(255) NOT NULL default '',
   tasks_per_section tinyint(4) NOT NULL default '0',
