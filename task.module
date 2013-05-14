@@ -204,6 +204,31 @@ function task_permission() {
   return $permissions;
 }
 
+/**
+ * Implements hook_field_extra_fields().
+ */
+function task_field_extra_fields() {
+  $extra = array();
+
+  foreach (task_types() as $type) {
+    $extra['task'][$type->type] = array(
+      'form' => array(
+        'title' => array(
+          'label' => t('Title'),
+          'description' => t('Task module element'),
+          'weight' => -5,
+        ),
+        'description' => array(
+          'label' => t('Description'),
+          'description' => t('Task module element'),
+          'weight' => 0,
+        ),
+      ),
+    );
+  }
+
+  return $extra;
+}
 
 /**
  * Implements hook_entity_property_info_alter().
