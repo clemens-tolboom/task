@@ -1,8 +1,16 @@
-The task module let's users manage tasks in a simple, yet powerful way.
-A task can be anything from a simple to-do item to a more complicated
-project-related task. It's designed with individuals, small businesses,
-and institutions in mind. However, it should be able to handle just about
-any task you can think of.
- 
-Please note that this module is under heavy development and should not be used
-in production environments.
+This module is a task manager for Drupal websites.
+
+## Installation
+
+Install Entity API and Task.
+
+$ drush dl task entity
+
+## Configuration
+
+1. Go to admin/structure/task-types and create a task type.
+2. Go to task/add to create task.
+
+Understand that is module is still a work in process.
+The first priority is to get the entity code sorted.
+

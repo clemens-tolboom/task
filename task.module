@@ -1,1623 +1,338 @@
 <?php
 
 /**
- * @file
- * A task module for managing tasks.
- *
- * The task module let's users manage tasks in a simple, yet powerful way.
- * A task can be anything from a simple to-do item to a more complicated
- * project-related task. It's designed with individuals, small businesses,
- * and institutions in mind. However, it should be able to handle just about
- * any task you can think of.
+ * Implements hook_entity_info().
  */
+function task_entity_info() {
+  $includes = drupal_get_path('module', 'task') . '/includes';
+  $return = array(
+    'task' => array(
+      'label' => t('Task'),
+      'entity class' => 'Task',
+      'controller class' => 'TaskController',
+      'base table' => 'task',
+      'fieldable' => TRUE,
+      'entity keys' => array(
+        'id' => 'tid',
+        'bundle' => 'type',
+      ),
+      'bundle keys' => array(
+        'bundle' => 'type',
+      ),
+      'bundles' => array(),
+      'load hook' => 'task_load',
+      'view modes' => array(
+        'full' => array(
+          'label' => t('Default'),
+          'custom settings' => FALSE,
+        ),
+      ),
+      'label callback' => 'entity_class_label',
+      'uri callback' => 'entity_class_uri',
+      'module' => 'task',
+      'access callback' => 'task_access',
+    ),
+  );
+  $return['task_type'] = array(
+    'label' => t('Task Type'),
+    'entity class' => 'TaskType',
+    'controller class' => 'TaskTypeController',
+    'base table' => 'task_type',
+    'fieldable' => FALSE,
+    'bundle of' => 'task',
+    'exportable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'name' => 'type',
+      'label' => 'label',
+    ),
+    'module' => 'task',
+    // Enable the entity API's admin UI.
+    'admin ui' => array(
+      'path' => 'admin/structure/task-types',
+      'file' => 'task.admin.inc',
+      'controller class' => 'TaskTypeUIController',
+      'file path' => $includes,
+    ),
+    'access callback' => 'task_type_access',
+  );
+
+  return $return;
+}
 
 /**
- * Implementation of hook_help().
+ * Implements hook_entity_info_alter().
  */
-function task_help($section) {
-  switch ($section) {
-    case 'admin/modules#description':
-      // This description is shown in the listing at admin/modules.
-      return t('Manages tasks in a simple, yet powerful way.');
-    case 'node/add#task':
-      // This description shows up when users click "create content."
-      return t('A task can be anything from a simple to-do item to a more complicated project related task.');
-    case 'admin/help#task':
-      return t("<h3>Background</h3>
-                <p>The task module let's users manage tasks in a simple, yet powerful way. A task can be anything from a simple to-do item to a more complicated project-related task. It's designed with individuals, small businesses, and institutions in mind. However, it should be able to handle just about any task you can think of.</p>
-                <h3>Task sections</h3>
-                <p>The tasks page contains task sections. These sections use one or more filters to list tasks of importance to the user.</p>
-                <p>There are 5 different sections definied by default.</p><ul>
-                <li>Past Due</li>
-                Tasks that are past their due date.
-                <li>Pending</li>
-                Tasks that will become past due in 1 week.
-                <li>Up Coming</li>
-                Tasks that have a due date greater than a week or no due date at all.
-                <li>Completed</li>
-                Tasks that have been completed.</ul>
-                <h3>Task filters</h3>
-                <p>Task filters are simple to complex patterns to match tasks against. They allow the user to see only which tasks they are interested in.</p>
-                <h3>Task configure page</h3>
-                <p>Users will be able to customize each section, column, and other user-related options on this page.</p>
-                <h3>Adding tasks</h3>
-                <p>To add a task either click the 'Add task' link on the tasks page, or go to 'create content > task'.</p>
-                <p></p>
-                <h3>Updating tasks</h3>
-                <p>There are two ways to update a task.</p><ul>
-                <li>By editing the task itself (if you are the task creater only).</li>
-                <li>By adding a comment and updating the task attributes you are allowed to update. Comments only allow the task creator to update the due date, but you'll be able to update any of the other task attributes.</li></ul>
-                <h3>Deleting tasks</h3>
-                <p>If you are the task creator or the admin you'll be allowed to delete a task by simply going to the task edit page and clicking the 'Delete' button.</p>
-                <h3>Task dates</h3>
-                <p>Just about any form of a date can be entered. Including, but not limited to, '1 week', '2 weeks 2 days', '1 month', and any of the drupal date formats.</p>
-                <h3>Task attributes</h3>
-                <p>These describe a task. The attributes that use the taxonomy.module can be customized on the 'admin/categories' page.</p>
-               ");      
+function task_entity_info_alter(&$entity_info) {
+  foreach (task_types() as $type => $info) {
+    $entity_info['task']['bundles'][$type] = array(
+      'label' => $info->label,
+      'admin' => array(
+        'path' => 'admin/structure/task-types/manage/%task_type',
+        'real path' => 'admin/structure/task-types/manage/' . $type,
+        'bundle argument' => 4,
+      ),
+    );
   }
 }
 
 /**
- * Implementation of hook_node_info().
+ * Implements hook_menu().
  */
-function task_node_info() {
-  return array('task' => array('name' => t('task'), 'base' => 'task'));
-}
-
-/**
- * Implementation of hook_perm().
- */
-function task_perm() {
-  return array('create task',
-               'access task',
-               'update task',
-               'edit own task');
-}
-
-/**
- * Implementation of hook_access().
- */
-function task_access($op, $node) {
-  global $user;
-
-  if ($op == 'create') {
-    return user_access('create task') && $user->uid;
-  }
-
-  if ($op == 'update' || $op == 'delete') {
-    if (user_access('edit own task') && ($user->uid == $node->uid)) {
-      return TRUE;
-    }
-  }
-/*
-  switch ($op) {
-    case 'view':
-      return user_access('access task') ||
-            (user_access('access own task') && $node->uid == $user->uid);
-    case 'create':
-      return user_access('create task') && $user->uid;
-    case 'update':
-    case 'delete':
-      return $user->uid &&
-            ($user->uid == $node->uid || user_access('edit own task'));
-  }
-*/
-}
-
-/**
- * Implementation of hook_menu().
- */
-function task_menu($may_cache) {
-  global $user;
+function task_menu() {
+  $includes = drupal_get_path('module', 'task') . '/includes';
   $items = array();
 
-  if ($may_cache) {
-    $items[] = array('path' => 'node/add/task', 'title' => t('task'),
-                     'access' => user_access('create task'));
+  $items['task/add'] = array(
+    'title' => 'Add task',
+    'page callback' => 'task_admin_add_page',
+    'access arguments' => array('administer task entities'),
+    'file' => 'task.admin.inc',
+    'file path' => $includes,
+    'type' => MENU_LOCAL_ACTION,
+    'tab_parent' => 'task',
+    'tab_root' => 'task',
+  );
 
-    $items[] = array('path' => 'task', 'title' => t('tasks'),
-                     'callback' => 'task_page',
-                     'access' => user_access('access task'),
-                     'type' => MENU_NORMAL_ITEM);
-    $items[] = array('path' => 'task/user', 'title' => t('my tasks'),
-                     'callback' => 'task_page',
-                     'access' => $user->uid && user_access('access task'),
-                     'type' => MENU_NORMAL_ITEM);
+  $task_uri = 'task/%task';
+  $task_uri_argument_position = 1;
 
-    $items[] = array('path' => 'task/filter', 'title' => t('filter'),
-                     'callback' => 'task_filter_page',
-                     'access' => user_access('access task'),
-                     'weight' => 1,
-                     'type' => MENU_NORMAL_ITEM);
+  $items[$task_uri] = array(
+    'title callback' => 'entity_label',
+    'title arguments' => array('task', $task_uri_argument_position),
+    'page callback' => 'task_view',
+    'page arguments' => array($task_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('view', 'task', $task_uri_argument_position),
+    'file' => 'task.pages.inc',
+    'file path' => $includes,
+  );
 
-    $items[] = array('path' => 'task/configure', 'title' => t('configure'),
-                     'callback' => 'task_configure_page',
-                     'access' => user_access('edit own task'),
-                     'weight' => 2,
-                     'type' => MENU_NORMAL_ITEM);
+  $items[$task_uri . '/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  $items[$task_uri . '/delete'] = array(
+    'title' => 'Delete task',
+    'title callback' => 'task_label',
+    'title arguments' => array($task_uri_argument_position),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('task_delete_form', $task_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('edit', 'task', $task_uri_argument_position),
+    'file' => 'task.admin.inc',
+    'file path' => $includes,
+  );
+
+  $items[$task_uri . '/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('task_form', $task_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('edit', 'task', $task_uri_argument_position),
+    'file' => 'task.admin.inc',
+    'file path' => $includes,
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );
+
+  foreach (task_types() as $type => $info) {
+    $items['task/add/' . $type] = array(
+      'title' => 'Add task',
+      'page callback' => 'task_add',
+      'page arguments' => array(2),
+      'access callback' => 'entity_access',
+      'access arguments' => array('create', 'task', $type),
+      'file' => 'task.admin.inc',
+      'file path' => $includes,
+    );
   }
-  else {
-    // Code here loads on every page without caching, so it's guaranteed
-    // to load the newest changes.
 
-    // Add the task stylesheet to every page.
-    drupal_set_html_head(task_html_head());
-  }
+  $items['admin/structure/task-types/%task_type/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('task_type_form_delete_confirm', 4),
+    'access arguments' => array('administer task types'),
+    'weight' => 1,
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'task.admin.inc',
+    'file path' => $includes,
+  );
 
   return $items;
 }
 
 /**
- * Implementation of hook_form().
+ * Implements hook_permission().
  */
-function task_form(&$node) {
-  $output = '';
-
-  // Check if the task attribute vocabularies exist, if not create them.
-  $vocabularies = taxonomy_get_vocabularies('task');
-  if (empty($vocabularies)) {
-    _task_create_attributes();
-  }
-
-  $output .= task_form_attributes($node);
-  $output .= task_form_dates($node);
-
-  // Now we define the form elements specific to our node type.
-  $output .= form_textarea(t('Body'), 'body', $node->body, 60, 20, '', NULL, TRUE);
-  $output .= filter_form('format', $node->format);
-
-  return $output;
-}
-
-/**
- * Returns a form for the task attributes. 
- */
-function task_form_attributes($node) {
-  $output     = '';
-  $attr_group = '';
-  // In order to be able to attach taxonomy terms to this node, we need
-  // to display the appropriate form elements.
-  if (function_exists('taxonomy_node_form')) {
-    $attr_group .= implode('', taxonomy_node_form('task', $node));
-  }
-  
-  $progress_values = array();
-  for ($i = 0; $i <= 100; $i+=5) {
-    $progress_values[$i] = $i. '%';
-  }
-    
-  $attr_group .= form_select(t('Progress'), 'progress', $node->progress, $progress_values);
-  $output     .= form_group_collapsible(t('Task attributes'), $attr_group);
-
-  return $output;
-}
-
-/**
- * Returns a form for the task dates. 
- */
-function task_form_dates($node) {
-  // jsCalendar scripts and sytlesheets
-  drupal_add_js(drupal_get_path('module', 'task'). '/calendar/calendar.js');
-  drupal_add_js(drupal_get_path('module', 'task'). '/calendar/calendar-setup.js');
-  drupal_add_js(drupal_get_path('module', 'task'). '/calendar/lang/calendar-en.js');
-  drupal_set_html_head(theme('stylesheet_import', drupal_get_path('module', 'task') .'/calendar/skins/aqua/theme.css', 'screen'));
-
-  $output = '';
-  
-  $date_format = variable_get('date_format_medium', 'D, m/d/Y - H:i');
-  // Convert the date format to jsCalendar's format (similar to MySQL's format).
-  $date_format = str_replace(
-      array( 'Y',  'm',  'd',  'H',  'i',  'M',  'j',  'g',  'a',  'D',  'F',  'l',
-                'h',  'Z',  'G',  'A',  's',  'U',  'W',  'w',  'y', '\n', '\t'),
-      array('%Y', '%m', '%d', '%H', '%M', '%b', '%e', '%l', '%P', '%a', '%B', '%A',
-               '%I', '%j', '%k', '%p', '%S', '%s', '%W', '%w', '%y', '%n', '%t'),
-      $date_format);
-  // Make one more pass to catch any double replaces.
-  $date_format = str_replace(array('%%b', '%%%p', '%%p'),
-                             array( '%M',   '%l',  '%A'),
-                             $date_format);
-  $time_format = (strpos($date_format, '%P') === false) ? "24" : "12";
-
-  $errors = form_get_errors(); 
-  if (!array_key_exists('duedate', ($errors) ? $errors : array())) {
-    $duedate = ($node->duedate) ? format_date($node->duedate) : '';
-  }
-  else {
-    $duedate = $node->duedate;
-  }
-// FIX: Due Date doesn't get converted to a string (it's either 0 or the timestamp)
-//      when editing a task that belongs to a group and is private to that group
-//      as the user admin.
-
-  $date_group .= '<table><tr><td class="task-form-date">';
-  $date_group .= form_textfield('Due date', 'duedate', $duedate, 40, 40);
-  $date_group .= '</td><td class="task-form-cal">';
-  $date_group .= l(theme_image(drupal_get_path('module', 'task') .'/calendar/calendar.gif', 'Click for calendar', 'Click for calendar'), $_GET['q']. '#', array('id' => 'edit-duedate-trigger'), NULL, NULL, FALSE, TRUE);
-  $date_group .= '</td></tr></table>';
-  $output .= form_group_collapsible(t('Task dates'), $date_group, FALSE,
-               'To select a due date for this task, click on the calendar above or enter a '. l('valid date', 'admin/help/task', array(), NULL, 'dates'). '. Leave blank for no due date.');
-
-  // Setup jsCalendar for the Due Date form field.
-  $output .= '<script type="text/javascript">
-    Calendar.setup(
-      {
-        inputField  : "edit-duedate",
-        button      : "edit-duedate-trigger",
-        ifFormat    : "'. $date_format .'",
-        timeFormat  : "'. $time_format .'",
-        showsTime   : true,
-        showOthers  : true,
-        align       : "cR",
-        weekNumbers : true,
-        firstDay    : '. variable_get('date_first_day', 0) .'
-      }
-    );'. "\n</script>\n";
-
-  return $output;
-}
-
-/**
- * Implementation of hook_validate().
- */
-function task_validate(&$node) {
-  global $user;
-  
-  // Validate the due date and convert it to a timestamp. 
-  if (!empty($node->duedate) && is_string($node->duedate)) {
-    $time = strtotime($node->duedate);
-    //    < PHP 5.1   ||    >= PHP 5.1
-    if (($time == -1) || ($time == FALSE)) {
-      form_set_error('duedate', t('Invalid date.'));
-    }
-    else {
-      $node->duedate = $time;
-    }
-  }
-
-  if (is_array($node->taxonomy)) {
-    $status_vid    = _task_attribute_get_vid('status');
-    $completed_tid = 0;
-
-    // Get the term for this node belonging to the Status vocabulary.
-    $term = NULL;
-    foreach($node->taxonomy as $tid) {
-      $term = taxonomy_get_term($tid);
-      if ($term->vid == $status_vid) {
-        break;
-      }
-    }
-
-    // Get the Completed term's id.  
-    $cterms = taxonomy_get_term_by_name(drupal_strtolower('Completed'));
-    foreach ($cterms as $key => $cterm) {
-      if ($cterm->vid == $term->vid) {
-        $completed_tid = $cterm->tid;
-      }
-    }
-
-    if (in_array($completed_tid, $node->taxonomy)) {
-      // If the status is completed...  
-      if ($node->progress != 100) {
-        // and progress is not 100, then set it to 100.
-        $node->progress = 100;
-      }
-      if ($node->completed == 0) {
-        // and the completed date is not set, then set it to the user's timestamp.
-        $node->completed = _task_user_time();
-      }
-    }
-    else {
-      // If the status is not completed...  
-      if ($node->progress == 100) {
-        // and progress is 100, then reset it back to 0.
-        $node->progress = 0;
-      }
-      if ($node->completed != 0) {
-        // and the completed date is set, then reset it back to 0.
-        $node->completed = 0;
-      }
-    }
-  }
-}
-
-/**
- * Implementation of hook_insert().
- */
-function task_insert($node) {
-  $tid = db_next_id('task_id');
-  db_query("INSERT INTO {task} (tid, nid, completed, duedate, progress) VALUES (%d, %d, %d, %d, %d)", $tid, $node->nid, (!empty($node->completed)) ? $node->completed : 0, (!empty($node->duedate)) ? $node->duedate : 0, $node->progress);
-}
-
-/**
- * Implementation of hook_update().
- */
-function task_update($node) {
-  db_query("UPDATE {task} SET completed = %d, duedate = %d, progress = %d WHERE nid = %d", (!empty($node->completed)) ? $node->completed : 0, (!empty($node->duedate)) ? $node->duedate : 0, $node->progress, $node->nid);
-}
-
-/**
- * Implementation of hook_delete().
- */
-function task_delete($node) {
-  db_query("DELETE FROM {task} WHERE nid = %d", $node->nid);
-}
-
-/**
- * Implementation of hook_load().
- */
-function task_load($node) {
-  $object = db_fetch_object(db_query("SELECT completed, duedate, progress FROM {task} WHERE nid = %d", $node->nid));
-  $object->duedate   = intval($object->duedate);
-  $object->completed = intval($object->completed);
-  return $object;
-}
-
-/**
- * Implementation of hook_view().
- */
-function task_view(&$node, $teaser = FALSE, $page = FALSE) {
-  $node = node_prepare($node, $teaser);
-
-  // Breadcrumb navigation
-  $breadcrumbs[] = l(t('Home'), NULL);
-  $breadcrumbs[] = l(t('Tasks'), 'task');
-  drupal_set_breadcrumb($breadcrumbs);
-
-  if (!$teaser) {
-    $node->body = theme('task', $node);
-  }
-}
-
-/**
- * Implementation of hook_nodeapi().
- */
-function task_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
-  global $user;
-  switch ($op) {
-    case 'view':
-      break;
-  }
-}
-
-/**
- * Comment callback; Adds task form fields to a comment form.
- * Note: This will work ONLY if the patch at
- *       http://drupal.org/node/28255 has been applied.
- */
-function task_comment($op, $comment, $param = NULL) {
-  global $user;
-  
-  if (is_object($comment)) {
-    $comment = object2array($comment);
-  }
-  $cid  = $comment['cid'];
-  $node = node_load($comment['nid']);
-  if ($comment['taxonomy']) {
-    $node->taxonomy = $comment['taxonomy'];
-  }
-  if ($comment['progress']) {
-    $node->progress = $comment['progress'];
-  }
-  if ($node->uid == $user->uid && $comment['duedate']) {
-    // Only the user who created the task may change the due date.
-    $node->duedate = $comment['duedate'];
-  }
-  if ($comment['completed']) {
-    $node->completed = $comment['completed'];
-  }
-      
-  switch ($op) {
-    case 'form pre':
-      if ($node->type == 'task') {
-        if (user_access('update task')) {
-          task_validate($node);
-          $output .= task_form_attributes($node);
-          if ($node->uid == $user->uid) {
-            $output .= task_form_dates($node);
-          }
-        }
-        return $output;
-      }
-      break;
-    case 'form post':
-      break;
-    case 'form param':
-      if ($node->type == 'task') {
-        return array("enctype" => "multipart/form-data");
-      }
-      break;
-    case 'validate':
-      // Since $comment is not a reference, there's no point in validating here.
-      // As the changes made by task_validate() will not be saved.
-      break;
-    case 'insert':
-      if ($node->type == 'task') {
-        task_validate($node);
-        _task_save_changelog($cid, $node);
-        task_update($node);
-        taxonomy_node_save($node->nid, $node->taxonomy);
-      }
-      break;
-    case 'update':
-      if ($node->type == 'task') {
-        task_validate($node);
-        _task_save_changelog($cid, $node);
-        task_update($node);
-        taxonomy_node_save($node->nid, $node->taxonomy);
-      }
-      break;
-    case 'delete':
-      if ($node->type == 'task') {
-        _task_del_changelog($cid);
-      }
-      break;
-    case 'view':
-      if ($node->type == 'task') {
-        if (user_access('update task')) {
-          task_validate($node);
-
-          $changelog = array();
-          if (array_key_exists('taxonomy', $node)) {
-            $changes = _task_get_changes($cid, $node, TRUE);
-            if (!empty($changes)) {
-              $changelog[] = array('changed' => _task_user_time(),
-                                   'changes' => $changes);
-            }
-          }
-          else {
-            $changelog = _task_get_changes($cid, $node);
-          }
-
-          if (!empty($changelog)) {
-            $output  = '<br />';
-            $group   = theme('task_changelog', $changelog, $node);
-            $output .= form_group_collapsible('Changelog', $group, TRUE);
-          }
-        }
-        return $output;
-      }
-      break;      
-  }
-}
-
-/**
- * Implementation of hook_settings
- */
-function task_settings() {
-  drupal_set_title(t('Task configuration'));
-  
-  // Check if the task attribute vocabularies exist, if not create them.
-  $vocabularies = taxonomy_get_vocabularies('task');
-  if (empty($vocabularies)) {
-    _task_create_attributes();
-  }
-
-/*  if (variable_get('task_per_page', 20) == 0) {
-    drupal_set_message('The maximum tasks per page must be greater than 0. Restoring the default of 20 tasks per page.', 'error');
-    variable_set('task_per_page', 20);
-  }*/
-
-  $output .= form_checkbox('Configurable task columns', 'task_configurable_columns',
-                           1, (variable_get('task_configurable_columns', 1)) ? TRUE : FALSE,
-                           'Allows users to configure the order of the task columns on a per-user basis.');
-
-/*  $output .= form_textfield('Maximum tasks per page', 'task_per_page',
-                            variable_get('task_per_page', 20), 4, 4,
-                            'The maximum number of tasks to show when listing tasks.');
-*/
-/*  $output .= form_select('Task date format', 'task_date_format',
-                         variable_get('task_date_format', 1),
-                         array(t('Short'), t('Medium'), t('Long')),
-                         'The Drupal date format to use for tasks.');
-*/
-  return $output;
-}
-
-/**
- *
- */
-function task_page() {
-  global $user;
-
-  switch ($_POST['op'] ? $_POST['op'] : arg(1)) {
-    case 'feed':
-      // rss feed
-      drupal_set_header('Content-Type: text/xml; charset=utf-8');
-      print task_get_rss_feed();
-      return;
-  }
-
-  // Breadcrumb navigation
-  $breadcrumbs[] = l(t('Home'), NULL);
-  drupal_set_title(t('Tasks'));
-  drupal_set_breadcrumb($breadcrumbs);
-
-  if ((arg(1) == 'user') && (!$user->uid)) {
-    return t('You need to log in to see your tasks.');
-  }
-
-  // Check if the task attribute vocabularies exist, if not create them.
-  $vocabularies = taxonomy_get_vocabularies('task');
-  if (empty($vocabularies)) {
-    _task_create_attributes();
-  }
-
-  $output = '';
-  $output .= '<div class="tasks-header">';
-  $output .= '<div class="links">';
-  
-  if ($user->uid && user_access('create task')) {
-      $output .= l('Add task', 'node/add/task'). ' | ';    
-  }
-  $output .= l('Filter', 'task/filter');
-  
-  // Don't allow anonymous users to configure the tasks page.
-  if ($user->uid) {
-    $output .= ' | '. l('Configure', 'task/configure');
-  }
-  $output .= '</div>';
-
-  if (variable_get('tasks_page_show_date', 1)) {
-    $output .= '<div class="date">';
-    $output .= format_date(_task_user_time(), 'medium');
-    $output .= '</div>';
-  }
-  $output .= '</div><br />';
-
-  // Get the section layout and sort the sections by weight.
-  $layout = _task_get_section_layout();
-  uasort($layout, create_function('$a, $b', 'return $a["weight"] > $b["weight"];'));
-
-  foreach ($layout as $sid => $sec) {
-    $sort_column = _task_get_sort_column($sid);
-    $list_group  = task_get_task_list($sid, $sort_column, $sec['tasks_per_section']);
-    $output     .= form_group_collapsible(t($sec['name']), $list_group, FALSE, NULL,
-                     array('class' => 'task-section-'. str_replace(' ', '', drupal_strtolower(t($sec['name'])))));
-    $output     .= '&nbsp;';
-  }
-
-  // Add the RSS XML icon to the bottom of the page.
-  $output .= '<span>'. theme('xml_icon', url('task/feed')). '</span>';
-
-  return $output;
-}
-
-/**
- *
- */
-function task_configure_page() {
-  global $user;
-  if (!$user->uid) {
-    return drupal_access_denied();
-  }
-
-  // Breadcrumb navigation
-  $breadcrumbs[] = l(t('Home'), NULL);
-  drupal_set_title(t('Configure task manager'));
-  drupal_set_breadcrumb($breadcrumbs);
-
-  drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
-
-  $overview  = '<p>This page will be used to configure various parts of the task manager '.
-               'that each user (except anonymous) can customize to their liking. '.
-               'For instance, you\'ll be able to create, change, and remove sections. '.
-               'This includes the order of the sections as well as the name and description, '.
-               'if any, of each section. Also, you\'ll have control over which task '.
-               'columns are shown and the order of the columns per section. Each '.
-               'section can have multiple filters definied and you\'ll be able to '.
-               'create, modify, and delete any of the filters for each section.</p><br />';
-  $overview .= '<span>This page is a work in progress. The tentative goal is this:</span><br/>';
-  $overview .= '<ul><li>Show only the options and list of sections (below).</li></ul>'; 
-  $overview .= '<span>Section</span><ul>
-               <li>Name</li>
-               <li>Description</li>
-               <li>Weight</li>
-               <li>Configure columns -> link to task/configure/sid (below)</li>
-               <li>Configure filters -> link to task/filter/sid</li>
-               <li>[Save] [Cancel]</li></ul>';
-  $overview .= '<span>Columns</span><ul>
-               <li>Enabled columns:</li>
-               <ul><li>List of columns with weights (like below)</li></ul>
-               <li>Disabled columns:</li>
-               <ul><li>List of columns with weights (like below)</li></ul>
-               <li>[Save] [Cancel]</li></ul>';
-  $output .= form_group_collapsible(t('Overview of page'), $overview, TRUE);
-
-// Initial design, needs cleaning up...
-//Options--folds
-//
-//Sections--folds
-//
-//Past Due  [weight/disabled]
-//--folds
-//Colomns
-//  Enabled ones:
-//  Id      Summary     ...
-//  [weight/disabled] [weight/disabled] ...
-//  Disabled ones:
-//  Id      Summary     ...
-//  [weight/disabled] [weight/disabled] ...
-//Filters
-//  list...
-//  create new
-//--
-// [Save] [Cancel]
-//... 
-
-  $options_group = form_checkbox('Show the current date/time on the tasks page', 'show-date', 
-                      1, (variable_get('tasks_page_show_date', 1)) ? TRUE : FALSE);
-  $output .= form_group(t('Options'), $options_group);
-
-  $sections_group = '';
-
-  // Get the section layout and sort the sections by weight.
-  $section_layout = _task_get_section_layout();
-  uasort($section_layout, create_function('$a, $b', 'return $a["weight"] > $b["weight"];'));
-  foreach ($section_layout as $sid => $section) {
-    $section_name = str_replace(' ', '-', drupal_strtolower($section['name']));
-    $section_group = form_weight('Weight', "section-$section_name-weight", $section['weight'], 10, 'This weight can be used to change the order of this section.');
-    
-    // Get the column layout and sort the columns by weight.
-    $column_layout = _task_get_column_layout($sid);
-    uasort($column_layout, create_function('$a, $b', 'return $a["weight"] > $b["weight"];'));
-
-// TODO:
-//    1) What about all columns/sections? (disabled ones having 'disabled' as weight)
-//    2) Add disabled to weights, or a _better idea_ would be to do the
-//       Enabled columns:
-//          blah...
-//       Disabled columns:
-//          blah...
-//    3) It's starting to get crowded in each section group. How about breaking it
-//       up like so:
-//          Section
-//            name/desc
-//            weight
-//            configure columns -> link to task/configure/section#
-//            configure filters -> link to task/filter/section#
-//    4) Instead of using the sections/columns names for the edit-'s, use the id's.
-//    5) tasks_per_section option
-    
-    $rows = array();
-    $column_weight = array();
-    foreach ($column_layout as $cid => $column) {
-      $column_name = str_replace(' ', '-', drupal_strtolower($column['data']));
-      $column_weight[] = form_weight('Weight', "section-$section_name-column-$column_name-weight", $column['weight'], 10);
-    }
-    $rows[] = array('data' => $column_weight, 'class' => 'task-column');
-    $column_group = theme('table', $column_layout, $rows);
-    $section_group .= form_group_collapsible(t('Columns'), $column_group, FALSE, 'Use the weights above to change the order of the columns for this section.');
-
-// TODO: add filters
-    $section_group .= form_button(t('Save'), $name = "section-$section_name-button", $type = 'submit');
-  
-    $sections_group .= form_group(t($section['name']), $section_group, FALSE, ($section['description']) ? $section['description'] : NULL);
-  }
-  $output .= form_group(t('Sections'), $sections_group);
-  
-  return $output;
-}
-
-/**
- *
- */
-function task_filter_page() {
-  // Breadcrumb navigation
-  $breadcrumbs[] = l(t('Home'), NULL);
-  drupal_set_title(t('Filter tasks'));
-  drupal_set_breadcrumb($breadcrumbs);
-
-  drupal_set_message("Note: This page does NOT work at all. It's a work in progress.");
-  $overview = '<p>Eventually, this will be a page will you can define filters to only '.
-             'show the tasks you want to see. You\'ll also be able to save the filters '.
-             'for later reference, if you choose.</p>'; 
-  $output .= form_group_collapsible(t('Overview of page'), $overview, TRUE);
-  return $output;
-}
-
-/**
- * Theme an individual task.
- */
-function theme_task($node) {
-  $output = '<div class="task">';
-
-  $duedate = (!empty($node->duedate)) ? format_date($node->duedate) : '';
-  if ($node->created) {
-    $created = format_date($node->created);
-  }
-//  if ($node->changed) {
-////    $updated = format_date($node->changed);
-////    $updated = format_interval(time() - $node->changed, 2);
-//    $updated = format_date(node_last_changed($node->nid));
-//  }
-
-  $rows   = array();
-//  $rows[] = array(t('Created:'),      check_plain($created ? $created : 'None'));
-//  $rows[] = array(t('Last Updated:'), check_plain($updated ? $updated : 'None'));
-  if ($node->completed) {
-    $completed = format_date($node->completed);
-    $rows[] = array('<b>'. t('Completed:'). '</b>',  check_plain($completed ? $completed : 'Not completed'));
-  }
-  $rows[] = array('<b>'. t('Due Date:'). '</b>',     check_plain($duedate ? $duedate : 'None'));
-
-  if (array_key_exists('taxonomy', $node)) {
-    foreach ($node->taxonomy as $tid) {
-      $term = taxonomy_get_term($tid);
-      $voc  = taxonomy_get_vocabulary($term->vid);
-      $rows[] = array('<b>'. t($voc->name). '</b>'. ':', l($term->name, 'taxonomy/term/'. $tid));
-    }
-  }
-  else {
-    foreach (taxonomy_node_get_terms($node->nid) as $tid => $term) {
-      $voc = taxonomy_get_vocabulary($term->vid);
-      $rows[] = array('<b>'. t($voc->name). '</b>'. ':', l($term->name, 'taxonomy/term/'. $tid));
-    }
-  }
-
-  $rows[] = array('<b>'. t('Progress:'). '</b>', $node->progress. '%');
-
-  $title          = '<span class="task-legend">'. t('Details'). '</span>';
-  $summary_group .= '<div class="task-details">'. theme('table', array(), $rows) .'</div>';
-  $output        .= form_group($title, $summary_group);
-
-  $title          = '<span class="task-legend">'. t('Description'). '</span>';  
-  $body_group     = '<p>'. $node->body .'</p>';
-  $output        .= form_group($title, $body_group);
-
-  $output        .= '</div>';
-
-  return $output;
-}
-
-/**
- * Theme the task list.
- */
-function theme_task_list($tasks, $layout, $sort_column, $tasks_per_section) {
-  $rows = array();
-  if (!empty($tasks)) {
-    foreach ($tasks as $task) {
-        $task = array('data' => $task, 'class' => 'task');
-        $rows[] = $task;
-    }
-
-    if ($pager = theme('pager', NULL, $tasks_per_section, 0, $sort_column + tablesort_pager())) {
-      $rows[] = array(array('data' => $pager, 'colspan' => count($layout)));
-    }    
-  }
-  else {
-    $rows[] = array(array('data' => t('No tasks found.'), 'colspan'=> count($layout)));
-  }
-
-  foreach ($layout as $key => $column) {
-    unset($layout[$key]['weight']);
-  }
-
-  $output = '<div class="task-list">';
-  $output .= theme('table', $layout, $rows, array('class' => 'task-list'));
-  $output .= '</div>';
-  return $output;
-}
-
-
-/**
- * 
- */
-function theme_task_changelog($changelog, $node) {
-  $output = '<div class="task-changelog">';
- 
-  $count = count($changelog);
-  foreach ($changelog as $n => $data) {
-    $old     = $data['changes']['old'];
-    $new     = $data['changes']['new'];
-    $changed = $data['changed'];
-
-    if (array_key_exists('taxonomy', $node)) {
-      $lid = db_result(db_query("SELECT COUNT(nid) FROM {task_changelog} WHERE nid = %d", $node->nid));
-      $lid++;
-    }
-    else {
-      $lid = array_shift($data);
-    }              
-
-    $output .= '<div class="task-changelog-changed">';
-    $output .= '#'. $lid. ' - Changed on '. format_date($changed);              
-    $output .= '</div>';
-    $output .= '<div class="task-changelog-changes">';
-
-// TODO: Add sort by changed date (sort the array()).
-
-    $rows  = array();
-    foreach ($new as $key => $value) {
-      switch ($key) {
-        case 'taxonomy':
-          foreach ($value as $k => $tid) {
-            $term_new = taxonomy_get_term($tid);
-            $term_old = taxonomy_get_term($old[$key][$k]);
-            $voc  = taxonomy_get_vocabulary($term_new->vid);
-            $rows[] = array('<b>'. t(drupal_ucfirst($voc->name)). '</b>'. ':', $term_old->name. ' &raquo; '. $term_new->name);
-          }
-          break;
-        case 'progress':
-          $rows[] = array('<b>'. t(drupal_ucfirst($key)). '</b>'. ':', $old[$key]. '%'. ' &raquo; '. $value. '%');
-          break;
-        case 'duedate':
-          $rows[] = array('<b>'. t('Due Date'). '</b>'. ':',
-            check_plain((!empty($old[$key])) ? format_date($old[$key]) : 'None').
-            ' &raquo; '.
-            check_plain((!empty($value)) ? format_date($value) : 'None'));
-          break;
-// TODO: Include completed date? It's kinda redundant with the status and progress.
-        case 'completed':
-          $rows[] = array('<b>'. t(drupal_ucfirst($key)). '</b>'. ':',
-            check_plain((!empty($old[$key])) ? format_date($old[$key]) : 'None').
-            ' &raquo; '.
-            check_plain((!empty($value)) ? format_date($value) : 'None'));
-          break;
-      }
-    }
-    
-    $output  .= theme('table', array(), $rows);              
-    $output .= '</div>';
-    $output .= ($n < $count-1) ? '<br />' : '';
-  }
-
-  $output  .= '</div>';
-  return $output;
-}
-
-/**
- * Provides links to CSS stylesheets and/or JavaScript scripts associated
- * with this module.
-
- * @return
- *   Various stylesheet and/or script includes.
- */
-function task_html_head() {
-  $output = theme('stylesheet_import', drupal_get_path('module', 'task') .'/task.css','screen');
-  return $output;
-}
-
-/**
- * Gets a list of tasks for displaying.
- * 
- * @param $sid
- *   The section id requesting the list of tasks.
- * @param $sort_column
- *   The column to sort.
- * @param $tasks_per_section
- *   The number of tasks to show per section.
- * @return
- *   A list of tasks.
- */
-function task_get_task_list($sid, $sort_column, $tasks_per_section) {
-  global $user;
-  if ((arg(2) == 'user') && (!$user->uid)) {
-    return t('You need to log in to see your tasks.');
-  }
-
-  if (module_exist('taxonomy')) {
-    // Get the column layout for the current section and sort the columns by weight.
-    $layout = _task_get_column_layout($sid);
-    uasort($layout, create_function('$a, $b', 'return $a["weight"] > $b["weight"];'));
- 
-    // Add which column to sort to the column layout.
-    foreach ($layout as $key => $column) {
-      if ($sort_column['order'] == $column['data']) {
-        $layout[$key]['sort'] = (!empty($sort_column['sort'])) ? $sort_column['sort'] : 'asc';
-      }
-    }
-    $orderby = tablesort_sql($layout);
-
-    // Fetch only the user's tasks.
-    $extra_sql = array();
-    if (arg(1) == 'user') {
-      $extra_sql['where'] .= "n.uid = ". $user->uid;
-    }
-
-    $tasks = array();
-    $query = _task_get_query_sql($sid, $orderby, $extra_sql);
-//print "query\n"; var_dump($query);
-//print "rewrite query\n"; var_dump(db_rewrite_sql($query['sql']));
-// had to add {node} to the taxonomy selects...
-//     $from_select .= ", (SELECT * FROM {node} n INNER JOIN {term_node} tn ON tn.nid = n.nid ".
-
-    $result = pager_query(db_rewrite_sql($query['sql']), $tasks_per_section, 0,
-                          db_rewrite_sql($query['count']));
-    if (db_num_rows($result)) {
-      while ($task = db_fetch_object($result)) {
-        $row = array();
-        foreach ($layout as $column) {
-            $field = $column['field'];
-//            $field = str_replace('.weight', '.name', $field); // for vocabularies
-            $field = str_replace('.', '_', $field); // t.tid -> t_tid
-
-            $data  = '';
-            switch ($column['data']) {
-              case t('Summary'):
-                $name   = $task->$field;
-                $maxlen = 50;
-                $attributes = array(); 
-                if (drupal_strlen($name) > $maxlen) {
-                  $name = drupal_substr($name, 0, $maxlen). ' ...';
-                  $attributes = array('title' => $task->$field);
-                }
-                $data = array('data' => l($name, "node/$task->nid", $attributes). ' ' .theme('mark', node_mark($task->nid, $task->n_changed)), 'class' => 'task-column-summary');
-                break;                          
-              case t('Progress'):
-                $data = array('data' => $task->$field. '%', 'class' => 'task-column-progress');
-                break;
-              case t('Due'):
-                $date  = check_plain((!empty($task->$field)) ? format_date($task->$field, 'custom', 'm/d/Y') : 'None');
-                $data = array('data' => $date, 'class' => 'task-column-due');
-                break;
-              case t('Created'):
-              case t('Updated'):
-              case t('Completed'):
-                $data  = check_plain((!empty($task->$field)) ? format_date($task->$field, 'custom', 'm/d/Y') : 'None');
-                break;
-              case t('Status'):
-                list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('status')));
-                $data = $term->name;
-                break;
-              case t('Priority'):
-                list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('priority')));
-                $data = $term->name;
-                break;
-              case t('Category'):
-                list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('category')));
-                $data = $term->name;
-                break;
-              case t('Author'):
-                $data = theme('username', user_load(array('uid' => $task->u_uid)));
-                break;
-              default:
-                $data = $task->$field;
-                break;
-            }
-            $row[] = $data;
-        }
-        $tasks[] = $row;
-      }
-    }
-    else {
-      $tasks = array();
-    }
-    return theme('task_list', $tasks, $layout, $sort_column, $tasks_per_section);
-  }
-  else {
-// TODO: Call task_help() like forum.module and show the user the requirements.
-    drupal_set_title(t('Warning'));
-    drupal_set_message(t('You must have the taxonomy module enabled.'));
-    return '';
-  }
-}
-
-/**
- * 
- */
-function task_get_rss_feed() {
-  global $base_url, $locale;
-
-  $sql       = 'SELECT n.nid FROM {task} t INNER JOIN {node} n ON n.nid = t.nid WHERE n.status = 1 ORDER BY t.tid DESC';
-  $sql_count = 'SELECT COUNT(n.nid) FROM {task} t INNER JOIN {node} n ON n.nid = t.nid WHERE n.status = 1 ORDER BY t.tid DESC';
-  $result    = pager_query(db_rewrite_sql($sql), 20, 0,
-                           db_rewrite_sql($sql_count));
-  while ($node = db_fetch_object($result)) {
-    $task = node_load(array('nid' => $node->nid));
-
-    $duedate   = (!empty($task->duedate)) ? format_date($task->duedate) : 'None';
-    $completed = (!empty($task->completed)) ? format_date($task->completed) : '';
-    
-    list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('status')));
-    $status   = $term->name;
-    list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('priority')));
-    $priority = $term->name;
-    list($tid, $term) = each(taxonomy_node_get_terms_by_vocabulary($task->nid, _task_attribute_get_vid('category')));
-    $category = $term->name;
-    
-    $body  = $task->teaser ? $task->teaser : $task->body;
-    $link  = url("node/$task->nid", NULL, NULL, TRUE);
-    $extra = array('pubDate'  => date('r', $node->created),
-                   'comments' => url("node/$task->nid", NULL, NULL, TRUE),
-                   'status'   => $status,
-                   'priority' => $priority,
-                   'category' => $category,
-                   'progress' => $task->progress. '%',
-                   'dueDate'  => check_plain($duedate));
-    if (!empty($task->completed)) {
-      $extra['completedDate'] = check_plain($completed);
-    }
-
-    $items .= format_rss_item($task->title, $link, $body, $extra);
-  }
-
-  $title = variable_get('site_name', 'drupal'). ' - '. t('Tasks Feed');
-  $link = $base_url . '/task/feed';
-  $description = variable_get('site_mission', '');
-
-  $output = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
-  $output .= "<!DOCTYPE rss [<!ENTITY % HTMLlat1 PUBLIC \"-//W3C//ENTITIES Latin 1 for XHTML//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml-lat1.ent\">]>\n";
-  $output .= "<rss version=\"2.0\" xml:base=\"". $base_url ."\">\n";
-  $output .= format_rss_channel($title, $link, $description, $items, $locale);
-  $output .= "</rss>\n";
-
-  return $output;
-}
-
-//---------------------------------------------------------------------------
-// Private helper functions
-//---------------------------------------------------------------------------
-
-/**
- * Creates the default task attribute vocabularies and terms.
- * 
- * @return
- *   An array of each vocabulary name and id created (ex: 'status' => vid). 
- */
-function _task_create_attributes() {
-  //  [vocabularies]              [terms]
-  //            [weight]
-  $vocabularies = array(
-      'status' => array(
-                -4,        
-                array('name' => t('Not Started'), 'vid' => 0, 'weight' => -10),
-                array('name' => t('In Progress'), 'vid' => 0, 'weight' => -9),
-                array('name' => t('Completed'),   'vid' => 0, 'weight' => -8),
-                array('name' => t('Postponed'),   'vid' => 0, 'weight' => -7),
-                array('name' => t('Canceled'),    'vid' => 0, 'weight' => -6)),
-      'priority' => array(                           
-                -2,
-                array('name' => t('Low'),         'vid' => 0, 'weight' => -10),
-                array('name' => t('Medium'),      'vid' => 0, 'weight' => -9),
-                array('name' => t('High'),        'vid' => 0, 'weight' => -8)),
-      'category' => array(                           
-                0,
-                array('name' => t('To-do'),       'vid' => 0, 'weight' => -10))
+function task_permission() {
+  $permissions = array(
+    'administer task types' => array(
+      'title' => t('Administer task types'),
+      'description' => t('Allows users to configure task types and their fields.'),
+      'restrict access' => TRUE,
+    ),
+    'administer task entities' => array(
+      'title' => t('Administer task'),
+      'description' => t('Allows users to administer all tasks.'),
+      'restrict access' => TRUE,
+    ),
+    'create task entities' => array(
+      'title' => t('Create tasks'),
+      'description' => t('Allows users to create tasks.'),
+      'restrict access' => TRUE,
+    ),
+    'view task entities' => array(
+      'title' => t('View tasks'),
+      'description' => t('Allows users to view tasks.'),
+      'restrict access' => TRUE,
+    ),
+    'edit any task entities' => array(
+      'title' => t('Edit any tasks'),
+      'description' => t('Allows users to edit any tasks.'),
+      'restrict access' => TRUE,
+    ),
+    'edit own task entities' => array(
+      'title' => t('Edit own tasks'),
+      'description' => t('Allows users to edit own tasks.'),
+      'restrict access' => TRUE,
+    ),
   );
-  $vids = array();
-  
-  foreach ($vocabularies as $voc => $terms) {
-    // Check to see if the task attribute vocabulary exists in the database.
-    $vid = db_result(db_query("SELECT vid FROM {vocabulary} WHERE module='%s' AND name='%s'", 'task', drupal_ucfirst($voc)));
-    if (!$vid) {
-      // Nope, create the vocabulary.
-      $object = array('name' => drupal_ucfirst($voc), 'weight' => array_shift($terms), 'multiple' => 0, 'required' => 1, 'hierarchy' => 1, 'relations' => 0, 'module' => 'task', 'nodes' => array('task'));
-      $status = taxonomy_save_vocabulary($object);
-      _task_taxonomy_set_message($status, $object);
-      $vid = $object['vid'];
-      
-      // Create the default terms for the vocabulary.
-      foreach ($terms as $term) {
-        $term['vid'] = $vid;
-        $object = $term;
-        $status = taxonomy_save_term($object);
-        _task_taxonomy_set_message($status, $object);                        
-      }
-    }
-    $vids[$voc] = $vid;
-  }   
-  return $vids;
+
+  return $permissions;
+}
+
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function task_entity_property_info_alter(&$info) {
+  $properties = &$info['task']['properties'];
+  $properties['created'] = array(
+    'label' => t("Date created"),
+    'type' => 'date',
+    'description' => t("The date the node was posted."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer nodes',
+    'schema field' => 'created',
+  );
+  $properties['changed'] = array(
+    'label' => t("Date changed"),
+    'type' => 'date',
+    'schema field' => 'changed',
+    'description' => t("The date the node was most recently updated."),
+  );
+  $properties['uid'] = array(
+    'label' => t("Author"),
+    'type' => 'user',
+    'description' => t("The author of the task."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer task entities',
+    'required' => TRUE,
+    'schema field' => 'uid',
+  );
 }
 
 /**
- * Gets the vocabulary id for the specified task attribute.
- * 
- * @param $attribute
- *   The name of the task attribute (ex: 'status').
- * @return
- *   The vocabulary id for the specified task attribute, or -1 if the task
- *   attribute is invalid. 
+ * Access callback for task.
  */
-function _task_attribute_get_vid($attribute) {
-  switch (drupal_strtolower($attribute)) {
-    case 'status':
-    case 'priority':
-    case 'category':
-      break;
-    default:
-      return -1;
-  }
-
-  // Get the task attribute vocabulary id out of the database.
-  $vid = db_result(db_query("SELECT vid FROM {vocabulary} WHERE module='%s' AND name='%s'", 'task', drupal_ucfirst(strtolower($attribute))));
-  if (!$vid) {
-    $vids = _task_create_attributes();
-    $vid  = $vids[drupal_strtolower($attribute)];
-  }
-  return $vid;
-}
-
-/**
- * Prints a taxonomy created/updated/deleted message to the admin only.
- */
-function _task_taxonomy_set_message($status, $object) {
-  global $user;
-  // Only show these messages to the admin.
-  if ($user->uid == 1) {
-    switch ($status) {
-      case SAVED_NEW:
-        drupal_set_message(t('Created new term %name.', array('%name' => theme('placeholder', $object['name']))));
-        break;
-      case SAVED_UPDATED:
-        drupal_set_message(t('Updated term %name.', array('%name' => theme('placeholder', $object['name']))));
-        break;
-      case SAVED_DELETED:
-        drupal_set_message(t('Deleted term %name.', array('%name' => theme('placeholder', $term_new['name']))));
-        break;
-    }
-  }
-}
-
-/**
- * Creates the default or specified task columns.
- * 
- * @param $columns
- *   The columns to create.
- * @return
- *   An array of the columns created.
- */
-function _task_create_columns($columns = array()) {
-  if (empty($columns)) {
-    $default_columns = array(
-        array('data' => t('Id'),        'field' => 't.tid',           'weight' => -10),
-        array('data' => t('Summary'),   'field' => 'n.title',         'weight' => -9),
-        array('data' => t('Status'),    'field' => 'status.weight',   'weight' => -8),
-        array('data' => t('Progress'),  'field' => 't.progress',      'weight' => -7),
-        array('data' => t('Priority'),  'field' => 'priority.weight', 'weight' => -6),
-        array('data' => t('Category'),  'field' => 'category.weight', 'weight' => -5),
-        array('data' => t('Author'),    'field' => 'u.name',          'weight' => -4),
-        array('data' => t('Created'),   'field' => 'n.created',       'weight' => -3),
-        array('data' => t('Updated'),   'field' => 'n.changed',       'weight' => -2),
-        array('data' => t('Due'),       'field' => 't.duedate',       'weight' => -1),
-        array('data' => t('Completed'), 'field' => 't.completed',     'weight' => 1)           
-    );
-    $columns = $default_columns;
-  }
-
-  $layout = array();
-  foreach ($columns as $column) {
-    // Check to see if the task column exists in the database.
-    $cid = db_result(db_query("SELECT cid FROM {task_column} WHERE name = '%s' ORDER BY weight", $column['data']));
-    if (!$cid) {
-      // If not, create it.
-      $cid = db_next_id('task_column_id');
-      db_query("INSERT INTO {task_column} (cid, name, description, db_field, weight) VALUES (%d, '%s', '%s', '%s', %d)",
-               $cid, $column['data'], ($column['description']) ? $column['description'] : '', $column['field'], $column['weight']);
-    }
-    unset($column['description']);
-    $layout[$cid] = $column;
-  }
-  return $layout;   
-}
-
-/**
- * Gets the task column layout for each user.
- *
- * @return
- *   An array containing each column name, database field, sort order,
- *   and vid (if the column is a vocabulary).
- */
-function _task_get_column_layout($sid) {
+function task_access($op, $task, $account = NULL, $entity_type = NULL) {
   global $user;
 
-  $user_allowed = '';
-  if (variable_get('task_configurable_columns', 1)) {
-    $user_allowed = " AND uid = ". $user->uid; 
+  if (!isset($account)) {
+    $account = $user;
   }
-
-  // Get the users layout, if exists. 
-  $layout = db_result(db_query("SELECT layout FROM {task_column_layout} WHERE sid = %d". $user_allowed, $sid));
-  if (!empty($layout)) {
-    return unserialize($layout);
-  }
-  else {
-    $section = _task_get_section($sid);
-    $layout  = _task_create_columns();
-    $due     = $completed = NULL;
-    
-    foreach ($layout as $cid => $column) {
-      // Remove the non-default columns.
-      switch ($column['data']) {
-        case t('Created'):
-        case t('Updated'):
-          unset($layout[$cid]);
-          break;
-        case t('Due'):
-          $due = $cid;
-          break;
-        case t('Completed'):
-          $completed = $cid;
-          break;
-      }
-    }
-
-    // Depending on the section, adjust the columns and save the layout to the database.
-    switch ($section->name) {
-      // Id, Summary        , Status  , Priority, Category, Author, Completed 
-      case t('Completed'):
-        if ($due) {
-          unset($layout[$due]);
-        }
-        break;
-      // Id, Summary, Status, Progress, Priority, Category, Author, Due
-      default:
-        if ($completed) {
-          unset($layout[$completed]);
-        }
-        break;
-    }  
-
-    $layout = array_values($layout);
-    db_query("INSERT INTO {task_column_layout} (uid, sid, layout) VALUES (%d, %d, '%s')", $user->uid, $sid, serialize($layout));
-
-    return $layout;
+  switch ($op) {
+    case 'create':
+      return user_access('administer task entities', $account)
+          || user_access('create task entities', $account);
+    case 'view':
+      return user_access('administer task entities', $account)
+          || user_access('view task entities', $account);
+    case 'edit':
+      return user_access('administer task entities')
+          || user_access('edit any task entities')
+          || (user_access('edit own task entities') && ($task->uid == $account->uid));
   }
 }
 
 /**
- * Creates the default or specified task sections.
- * 
- * @param $sections
- *   The sections to create.
- * @return
- *   An array of the sections created.
+ * Load a task.
  */
-function _task_create_sections($sections = array()) {
-  $layout = array();
-  if (empty($sections)) {
-    $default_sections = array(
-        array('name' => t('Past Due'),  'weight' => -10, 'tasks_per_section' => 10,
-              'sort_column' => array('order' => 'Due', 'sort' => 'asc')),
-        array('name' => t('Pending'),   'weight' => -9,  'tasks_per_section' => 10,
-              'sort_column' => array('order' => 'Due', 'sort' => 'asc')),
-        array('name' => t('Up Coming'), 'weight' => -8,  'tasks_per_section' => 10,
-              'sort_column' => array('order' => 'Due', 'sort' => 'asc')),
-        array('name' => t('Completed'), 'weight' => -7,  'tasks_per_section' => 10,
-              'sort_column' => array('order' => 'Completed', 'sort' => 'desc')),
-        array('name' => t('All'),       'weight' => -6,  'tasks_per_section' => 10,
-              'sort_column' => array('order' => 'Id', 'sort' => 'desc'))
-    );
-    $sections = $default_sections;
-  }
-
-  foreach ($sections as $section) {
-    // Check to see if the task section exists in the database.
-    $sid = db_result(db_query("SELECT sid FROM {task_section} WHERE name = '%s' ORDER BY weight", $section['name']));
-    if (!$sid) {
-      // If not, create it.
-      $sid = db_next_id('task_section_id');
-      db_query("INSERT INTO {task_section} (sid, name, description, weight, sort_column, tasks_per_section) VALUES (%d, '%s', '%s', %d, '%s', %d)",
-               $sid, $section['name'], ($section['description']) ? $section['description'] : '',
-               $section['weight'], serialize($section['sort_column']), $section['tasks_per_section']);
-    }
-    unset($section['description']);
-    $layout[$sid] = $section;
-  }
-  return $layout;   
+function task_load($tid, $reset = FALSE) {
+  $tasks = task_load_multiple(array($tid), array(), $reset);
+  return reset($tasks);
 }
 
 /**
- * Gets the task section layout for each user.
- *
- * @return
- * TODO:
- *   An array containing each section name.
+ * Load multiple tasks based on certain conditions.
  */
-function _task_get_section_layout() {
-  global $user;
-
-  // Get the users layout, if exists. 
-  $layout = db_result(db_query("SELECT layout FROM {task_section_layout} WHERE uid = %d", $user->uid));
-  if (!empty($layout)) {
-    return unserialize($layout);
-  }
-  else {
-    $layout = _task_create_sections();    
-    foreach ($layout as $sid => $section) {
-      // Remove the non-default sections.
-      switch ($section['name']) {
-        case t('All'):
-          unset($layout[$sid]);
-          break;
-      }
-    }
-
-    // Past Due, Pending, Up Coming, Completed
-    db_query("INSERT INTO {task_section_layout} (uid, layout) VALUES (%d, '%s')", $user->uid, serialize($layout));
-
-    return $layout;
-  }
+function task_load_multiple($tids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('task', $tids, $conditions, $reset);
 }
 
 /**
- * Gets the given section id's object from the database.
- *
- * @return
- *   The section object from the database. NULL if the section id doesn't exist.
+ * Save task.
  */
-function _task_get_section($sid) {
-  $section = db_fetch_object(db_query("SELECT * FROM {task_section} WHERE sid = %d", $sid));
-  if (!empty($section)) {
-    return $section;
-  }
-  return NULL;
+function task_save($task) {
+  entity_save('task', $task);
 }
 
 /**
- * Creates the specified task filters for the specified section.
- * 
- * @param $sid
- *   The section id for the filters.
- * @param $filters
- *   The filters to create.
- * @return
- *   An array of the filters created.
+ * Delete single task.
  */
-function _task_create_filters($sid, $filters = array()) {
-  $filter_r = array();
-  $section  = _task_get_section($sid);
-
-  if (empty($filters)) {
-    switch ($section->name) {
-      case t('Past Due'):
-        $filters[] = array('where' => '(t.progress != 100 AND (t.duedate < %current_timestamp AND t.duedate != 0))');
-        break;
-      case t('Pending'):
-        $filters[] = array('where' => '(t.progress != 100 AND (t.duedate >= %current_timestamp AND t.duedate < %next_week AND t.duedate != 0))');
-        break;
-      case t('Up Coming'): 
-        $filters[] = array('select'  => '(t.duedate != 0) as duedate_notzero',
-                           'where'   => '(t.progress != 100 AND (t.duedate >= %next_week OR t.duedate = 0))',
-                           'orderby' => array('prepend' => 'duedate_notzero DESC'));
-        break;
-      case t('Completed'): 
-          $filters[] = array('where' => 't.progress = 100');
-        break;
-      case t('All'): 
-          $filters[] = array();
-        break;
-      default:
-        break;
-    }
-  }
-
-  foreach ($filters as $filter) {
-    // Check to see if the task filter exists in the database.
-    $fid = db_result(db_query("SELECT fid FROM {task_filter} WHERE sid = %d AND filter = '%s'", $sid, serialize($filter)));
-    if (!$fid) {
-      // If not, create it.
-      $fid = db_next_id('task_filter_id');
-      db_query("INSERT INTO {task_filter} (fid, sid, filter) VALUES (%d, %d, '%s')",
-               $fid, $sid, serialize($filter));
-    }
-    $filter_r[$fid] = $filter;
-  }
-
-  return $filter_r;   
+function task_delete($task) {
+  entity_delete('task', entity_id('task' ,$task));
 }
 
 /**
- * 
+ * Delete multiple tasks.
  */
-function _task_get_filters($sid) {
-  $filters = array();
-    
-  $result = db_query("SELECT * FROM {task_filter} WHERE sid = %d", $sid);
-  if (db_num_rows($result)) {
-    while ($filter = db_fetch_object($result)) {
-      $filters[$filter->fid] = unserialize($filter->filter); 
-    }
-  }
-  else {
-      $filters = _task_create_filters($sid);
-  }
-  return $filters;
+function task_delete_multiple($task_ids) {
+  entity_delete_multiple('task', $task_ids);
 }
 
 /**
- * 
+ * Access callback for task Type.
  */
-function _task_get_sort_column($sid) {
-  $sort_column = unserialize(db_result(db_query("SELECT sort_column FROM {task_section} WHERE sid = %d", $sid)));
-
-  if (!empty($_GET['order']) && ($_GET['order'] != $sort_column['order'])) {
-    $sort_column['order'] = (!empty($_GET['order'])) ? $_GET['order'] : 't.tid';
-    $sort_column['sort']  = (!empty($_GET['sort']))  ? $_GET['sort']  : 'asc';
-  }
-
-  return $sort_column;
+function task_type_access($op, $entity = NULL) {
+  return user_access('administer task types');
 }
 
 /**
- * Builds the SQL statement for the task list query.
+ * Load task Type.
  */
-function _task_get_query_sql($sid, $orderby, $extra_sql) {
-  // Set the defaults for the SQL clauses. Later, we'll prepend/append any
-  // additional SQL from the filters to these. 
-  $select  = "n.nid, t.tid AS t_tid, t.progress AS t_progress, " .
-             "t.duedate AS t_duedate, t.completed AS t_completed, " .
-             "n.title AS n_title, n.created AS n_created, n.changed AS n_changed, " .
-             "u.name AS u_name, u.uid AS u_uid";
-//             "status.name AS status_name, status.vid AS status_vid, ".
-//             "status.tid AS status_tid, status.weight AS status_weight, ".
-//             "priority.name AS priority_name, priority.vid AS priority_vid, ".
-//             "priority.tid AS priority_tid, priority.weight AS priority_weight, ".
-//             "category.name AS category_name, category.vid AS category_vid, ". 
-//             "category.tid AS category_tid, category.weight AS category_weight";
-  $from    = "{task} t ".
-             "INNER JOIN {node} n ON n.nid = t.nid ".
-             "INNER JOIN {users} u ON u.uid = n.uid";
-  $where   = "n.status = 1";
-  $groupby = "n.nid";
-  $orderby = preg_replace('/^\s*ORDER\s+BY\s*(.*)$/', '$1', $orderby);
-
-  // Build the vocabulary select statements that will be appended to the FROM clause.
-  $from_select = "";
-  $vocabularies = taxonomy_get_vocabularies('task');  
-  foreach ($vocabularies as $vid => $voc) {
-    $from_select .= ", (SELECT * FROM {node} n INNER JOIN {term_node} tn ON tn.nid = n.nid ".
-                 "LEFT JOIN {term_data} td ON tn.tid = td.tid ".
-                 "LEFT JOIN {vocabulary} v ON v.vid = td.vid ".                 
-                 "WHERE td.vid = $vid) AS ". drupal_strtolower($voc->name);
-  }
-  $from .= $from_select;
-
-  // Now, we need to add any additional SQL from the filters to each SQL clause.
-  $filters = _task_get_filters($sid);
-
-  if (!empty($extra_sql)) {
-    $filters[] = $extra_sql;
-  }
-  foreach ($filters as $fid => $filter) {
-    if (!empty($filter)) {
-      if (array_key_exists('select', $filter)) {
-        if (is_array($filter['select']) && array_key_exists('prepend', $filter['select'])) {
-          $select  = $filter['select']['prepend']. ", $select";
-        }
-        else {
-          $select  .= ", ". ((is_array($filter['select'])) ? $filter['select']['append'] : $filter['select']);
-        }
-      }
-
-      if (array_key_exists('from', $filter)) {
-        if (is_array($filter['from']) && array_key_exists('prepend', $filter['from'])) {
-          $from  = $filter['from']['prepend']. ", $from";
-        }
-        else {
-          $from .= ", ". ((is_array($filter['from'])) ? $filter['from']['append'] : $filter['from']);
-        }
-      }
-
-      if (array_key_exists('where', $filter)) {
-        if (is_array($filter['where']) && array_key_exists('prepend', $filter['where'])) {
-          $where  = $filter['where']['prepend']. ", $where";
-        }
-        else {
-          $where .= " AND ". ((is_array($filter['where'])) ? $filter['where']['append'] : $filter['where']);
-        }
-      }
-
-      if (array_key_exists('groupby', $filter)) {
-        if (is_array($filter['groupby']) && array_key_exists('prepend', $filter['groupby'])) {
-          $groupby  = $filter['groupby']['prepend']. ", $groupby";
-        }
-        else {
-          $groupby .= ", ". ((is_array($filter['groupby'])) ? $filter['groupby']['append'] : $filter['groupby']);
-        }
-      }
-
-      if (array_key_exists('orderby', $filter)) {
-        if (is_array($filter['orderby']) && array_key_exists('prepend', $filter['orderby'])) {
-          $orderby  = $filter['orderby']['prepend']. ", $orderby";
-        }
-        else {
-          $orderby .= ", ". ((is_array($filter['orderby'])) ? $filter['orderby']['append'] : $filter['orderby']);
-        }
-      }
-    }
-  }
-  
-  $query['sql']   = "SELECT $select ". "FROM $from ". "WHERE $where ".
-                    "GROUP BY $groupby ". "ORDER BY $orderby";
-  $query['count'] = "SELECT COUNT(n.nid) FROM task t INNER JOIN {node} n ON n.nid = t.nid WHERE n.status = 1";
-
-  // Filter substitutes:
-  //   %current_timestamp = _task_user_time()
-  //   %next_week         = _task_user_time(+7d days)
-  $query['sql'] = str_replace('%current_timestamp',  _task_user_time(), $query['sql']);
-  $query['sql'] = str_replace('%next_week', _task_user_time("+7 days"), $query['sql']);
-
-  return $query;  
+function task_type_load($task_type) {
+  return task_types($task_type);
 }
 
 /**
- * Returns a local timestamp based on the user or site time zone.
+ * List of task Types.
  */
-function _task_user_time($time_shift = "") {
-  global $user;
-
-  $time = time();
-  if ($time_shift) {
-    $time = strtotime($time_shift);
-  }
-  
-  if (variable_get('configurable_timezones', 1) && $user->uid && drupal_strlen($user->timezone)) {
-    return ($time - date("Z")) + $user->timezone;
-  }
-  else {
-    return ($time - date("Z")) + variable_get('date_default_timezone', 0);
-  }
+function task_types($type_name = NULL) {
+  $types = entity_load_multiple_by_name('task_type', isset($type_name) ? array($type_name) : FALSE);
+  return isset($type_name) ? reset($types) : $types;
 }
 
 /**
- * 
+ * Save task type entity.
  */
-function _task_get_changes($cid, $edit, $get_new = FALSE) {
-  global $user;
-  
-  if ($get_new == TRUE) {
-    $node    = node_load($edit->nid);
-    $changes = array();
-
-    if ($node->uid == $user->uid) {
-      // Only the user who created the task may change the due date.
-      $vars = array('progress', 'completed', 'duedate');
-    }
-    else {
-      $vars = array('progress', 'completed');
-    }
-    
-    foreach ($vars as $var) {
-      if ($node->$var != $edit->$var) {
-        $changes['old'][$var] = $node->$var;
-        $changes['new'][$var] = $edit->$var;
-      }
-    }
-
-    if (array_key_exists('taxonomy', $edit)) {
-      $node->taxonomy = array();
-      foreach (taxonomy_node_get_terms($node->nid) as $tid => $term) {
-        $node->taxonomy[] = $tid;
-      }
-
-      if ($edit->taxonomy != $node->taxonomy) {
-        $changes['old']['taxonomy'] = array_diff($node->taxonomy, $edit->taxonomy);
-        $changes['new']['taxonomy'] = array_diff($edit->taxonomy, $node->taxonomy);
-      }
-    }
-  }
-  else {
-// TODO: Set option and add to configure page.
-//   variable_set('task-changelog-sort', 'ASC')
-    $result = db_query("SELECT * FROM {task_changelog} WHERE cid = %d ORDER BY lid ". variable_get('task-changelog-sort', 'ASC'), $cid);
-    while ($data = db_fetch_object($result)) {
-      if (!empty($data->changes)) {
-        $changes[] = array($data->lid,
-                           'changed' => $data->changed,
-                           'changes' => unserialize($data->changes));
-      }
-    }
-  }
-
-  return $changes;
+function task_type_save($task_type) {
+  entity_save('task_type', $task_type);
 }
 
 /**
- * 
+ * Delete single case type.
  */
-function _task_save_changelog($cid, $node) {
-  $changed = _task_user_time();
-  $changes = _task_get_changes($cid, $node, TRUE);
-  $lid     = db_result(db_query("SELECT COUNT(nid) FROM {task_changelog} WHERE nid = %d", $node->nid));
-  db_query("INSERT INTO {task_changelog} (lid, nid, cid, changed, changes) VALUES (%d, %d, %d, %d, '%s')",
-           $lid+1, $node->nid, $cid, $changed, serialize($changes));
+function task_type_delete($task_type) {
+  entity_delete('task_type', entity_id('task_type' ,$task_type));
 }
 
 /**
- * 
+ * Delete multiple case types.
  */
-function _task_del_changelog($cid) {
-  db_query("DELETE FROM {task_changelog} WHERE cid = %d", $cid);
+function task_type_delete_multiple($task_type_ids) {
+  entity_delete_multiple('task_type', $task_type_ids);
 }
-
-?>
