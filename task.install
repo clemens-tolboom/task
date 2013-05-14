@@ -29,7 +29,7 @@ function task_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
-      'completed' => array(
+      'complete' => array(
         'description' => 'Boolean indicating whether the task has been completed.',
         'type' => 'int',
         'not null' => TRUE,

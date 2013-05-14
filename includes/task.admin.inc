@@ -146,6 +146,12 @@ function task_form($form, &$form_state, $task) {
     '#default_value' => $task->description,
   );
 
+  $form['complete'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Complete'),
+    '#default_value' => $task->complete,
+  );
+
   $form['uid'] = array(
     '#type' => 'value',
     '#value' => $task->uid,

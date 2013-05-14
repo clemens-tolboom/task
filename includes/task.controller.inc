@@ -7,6 +7,7 @@ class TaskController extends EntityAPIController {
     $values += array(
       'title' => '',
       'description' => '',
+      'complete' => FALSE,
       'created' => REQUEST_TIME,
       'changed' => REQUEST_TIME,
       'uid' => $user->uid,
