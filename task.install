@@ -1,6 +1,32 @@
 <?php
 
 /**
+ * @file
+ * Defines installation code.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function task_install() {
+  // Create default application type.
+  $types = array(
+    array(
+      'type' => 'task',
+      'label' => 'Task',
+      'weight' => 0,
+      'description' => 'Default task.'
+    ),
+  );
+
+  foreach ($types as $type) {
+    $task_type = entity_create('task_type', $type);
+    $task_type->save();
+  }
+
+}
+
+/**
  * Implements hook_schema().
  */
 function task_schema() {

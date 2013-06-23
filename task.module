@@ -361,3 +361,4 @@ function task_type_delete($task_type) {
 function task_type_delete_multiple($task_type_ids) {
   entity_delete_multiple('task_type', $task_type_ids);
 }
+
