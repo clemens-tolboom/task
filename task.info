@@ -1,9 +1,9 @@
 name = Task
 description = Create task items.
 package = Other
-version = VERSION
 core = 7.x
-
 dependencies[] = entity
+dependencies[] = entityreference
+dependencies[] = views
 
 files[] = includes/task.controller.inc

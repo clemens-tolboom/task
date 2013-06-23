@@ -22,6 +22,8 @@ function task_install() {
   foreach ($types as $type) {
     $task_type = entity_create('task_type', $type);
     $task_type->save();
+
+    task_add_assignee_field($task_type);
   }
 
 }

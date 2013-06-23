@@ -1,5 +1,7 @@
 <?php
 
+define('TASK_ASSIGNEE_FIELD', 'task_assignee');
+
 /**
  * Implements hook_entity_info().
  */
@@ -362,3 +364,50 @@ function task_type_delete_multiple($task_type_ids) {
   entity_delete_multiple('task_type', $task_type_ids);
 }
 
+function task_add_assignee_field($type) {
+
+  $field = field_info_field(TASK_ASSIGNEE_FIELD);
+  $instance = field_info_instance('task', TASK_ASSIGNEE_FIELD, $type->type);
+
+  if (empty($field)) {
+    $field = array(
+      'field_name' => TASK_ASSIGNEE_FIELD,
+      'type' => 'entityreference',
+      'entity_types' => array('task'),
+      'settings' => array(
+        'target_type' => 'user',
+        'handler' => 'base',
+        'handler_settings' => array(),
+      ),
+    );
+    $field = field_create_field($field);
+  }
+  if (empty($instance)) {
+    $instance = array(
+      'field_name' => TASK_ASSIGNEE_FIELD,
+      'entity_type' => 'task',
+      'bundle' => $type->type,
+      'label' => 'Assignee',
+      'widget' => array('type' => 'entityreference_autocomplete', 'weight' => 50),
+      'settings' => array(),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'type' => 'entityreference_label',
+        ),
+      ),
+    );
+    $instance = field_create_instance($instance);
+  }
+  return $instance;
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function task_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'task') . '/includes/views',
+  );
+}
