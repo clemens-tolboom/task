@@ -139,7 +139,7 @@ function task_menu() {
 
   foreach (task_types() as $type => $info) {
     $items['task/add/' . $type] = array(
-      'title' => $type->label,
+      'title' => $info->label,
       'page callback' => 'task_add',
       'page arguments' => array(2),
       'access callback' => 'entity_access',
