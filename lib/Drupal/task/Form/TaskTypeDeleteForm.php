@@ -60,7 +60,7 @@ class TaskTypeDeleteForm extends EntityConfirmFormBase implements EntityControll
    * {@inheritdoc}
    */
   public function getCancelPath() {
-    return 'admin/structure/tasks/types';
+    return 'admin/structure/task-types';
   }
 
   /**
@@ -90,7 +90,7 @@ class TaskTypeDeleteForm extends EntityConfirmFormBase implements EntityControll
    */
   public function submit(array $form, array &$form_state) {
     $this->entity->delete();
-    $form_state['redirect'] = 'admin/structure/tasks/types';
+    $form_state['redirect'] = 'admin/structure/task-types';
     drupal_set_message(t('task type %label has been deleted.', array('%label' => $this->entity->label())));
     watchdog('task', 'task type %label has been deleted.', array('%label' => $this->entity->label()), WATCHDOG_NOTICE);
   }

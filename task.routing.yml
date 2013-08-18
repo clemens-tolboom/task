@@ -1,26 +1,26 @@
 task_type_list:
-  pattern: '/admin/structure/tasks/types'
+  pattern: '/admin/structure/task-types'
   defaults:
     _entity_list: 'task_type'
   requirements:
     _permission: 'administer task types'
 
 task_type_delete:
-  pattern: '/admin/structure/tasks/manage/{task_type}/delete'
+  pattern: '/admin/structure/task-types/manage/{task_type}/delete'
   defaults:
     _entity_form: 'task_type.delete'
   requirements:
     _entity_access: 'task_type.delete'
 
 task_type_add:
-  pattern: '/admin/structure/tasks/types/add'
+  pattern: '/admin/structure/task-types/add'
   defaults:
     _entity_form: 'task_type.add'
   requirements:
     _permission: 'administer task types'
 
 task_type_edit:
-  pattern: '/admin/structure/tasks/manage/{task_type}'
+  pattern: '/admin/structure/task-types/manage/{task_type}'
   defaults:
     _entity_form: 'task_type.edit'
   requirements:

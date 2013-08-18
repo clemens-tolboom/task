@@ -81,7 +81,7 @@ class TaskType extends ConfigEntityBase implements TaskTypeInterface {
    */
   public function uri() {
     return array(
-      'path' => 'admin/structure/tasks/manage/' . $this->id(),
+      'path' => 'admin/structure/task-types/manage/' . $this->id(),
       'options' => array(
         'entity_type' => $this->entityType,
         'entity' => $this,

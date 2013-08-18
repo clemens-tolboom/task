@@ -101,7 +101,7 @@ class TaskTypeFormController extends EntityFormController {
       watchdog('task', 'Task type %label has been added.', array('%label' => $task_type->label()), WATCHDOG_NOTICE, l(t('Edit'), $uri['path'] . '/edit'));
     }
 
-    $form_state['redirect'] = 'admin/structure/tasks/types';
+    $form_state['redirect'] = 'admin/structure/task-types';
   }
 
   /**
@@ -109,7 +109,7 @@ class TaskTypeFormController extends EntityFormController {
    */
   public function delete(array $form, array &$form_state) {
     $task_type = $this->entity;
-    $form_state['redirect'] = 'admin/structure/tasks/manage/' . $task_type->id() . '/delete';
+    $form_state['redirect'] = 'admin/structure/task-types/manage/' . $task_type->id() . '/delete';
   }
 
 }
