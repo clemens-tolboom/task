@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Contains \Drupal\task\Plugin\Core\Entity\CustomBlockType.
+ * Contains \Drupal\task\Plugin\Core\Entity\TaskType.
  */
 
 namespace Drupal\task\Plugin\Core\Entity;
@@ -11,7 +11,7 @@ use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\Annotation\EntityType;
 use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Entity\EntityStorageControllerInterface;
-use Drupal\task\CustomBlockTypeInterface;
+use Drupal\task\TaskTypeInterface;
 
 /**
  * Defines the task type entity.
@@ -22,14 +22,14 @@ use Drupal\task\CustomBlockTypeInterface;
  *   module = "task",
  *   controllers = {
  *     "storage" = "Drupal\Core\Config\Entity\ConfigStorageController",
- *     "access" = "Drupal\task\CustomBlockTypeAccessController",
+ *     "access" = "Drupal\task\TaskTypeAccessController",
  *     "form" = {
- *       "default" = "Drupal\task\CustomBlockTypeFormController",
- *       "add" = "Drupal\task\CustomBlockTypeFormController",
- *       "edit" = "Drupal\task\CustomBlockTypeFormController",
- *       "delete" = "Drupal\task\Form\CustomBlockTypeDeleteForm"
+ *       "default" = "Drupal\task\TaskTypeFormController",
+ *       "add" = "Drupal\task\TaskTypeFormController",
+ *       "edit" = "Drupal\task\TaskTypeFormController",
+ *       "delete" = "Drupal\task\Form\TaskTypeDeleteForm"
  *     },
- *     "list" = "Drupal\task\CustomBlockTypeListController"
+ *     "list" = "Drupal\task\TaskTypeListController"
  *   },
  *   config_prefix = "task.type",
  *   entity_keys = {
@@ -39,38 +39,38 @@ use Drupal\task\CustomBlockTypeInterface;
  *   }
  * )
  */
-class CustomBlockType extends ConfigEntityBase implements TaskTypeInterface {
+class TaskType extends ConfigEntityBase implements TaskTypeInterface {
 
   /**
-   * The custom block type ID.
+   * The task type ID.
    *
    * @var string
    */
   public $id;
 
   /**
-   * The custom block type UUID.
+   * The task type UUID.
    *
    * @var string
    */
   public $uuid;
 
   /**
-   * The custom block type label.
+   * The task type label.
    *
    * @var string
    */
   public $label;
 
   /**
-   * The default revision setting for custom blocks of this type.
+   * The default revision setting for tasks of this type.
    *
    * @var bool
    */
   public $revision;
 
   /**
-   * The description of the block type.
+   * The description of the task type.
    *
    * @var string
    */
@@ -81,7 +81,7 @@ class CustomBlockType extends ConfigEntityBase implements TaskTypeInterface {
    */
   public function uri() {
     return array(
-      'path' => 'admin/structure/custom-blocks/manage/' . $this->id(),
+      'path' => 'admin/structure/tasks/manage/' . $this->id(),
       'options' => array(
         'entity_type' => $this->entityType,
         'entity' => $this,

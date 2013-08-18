@@ -1,2 +1,60 @@
 <?php
 
+/**
+ * Implements hook_permission().
+ */
+function task_permission() {
+  return array(
+    'administer task types' => array(
+      'title' => t('Administer task types'),
+    ),
+  );
+}
+
+/**
+ * Loads a task type.
+ *
+ * @param int $id
+ *   The ID of the task type to load.
+ *
+ * @return \Drupal\task\Plugin\Core\Entity\TaskType|null
+ *   A TaskType object or NULL if the requested $id does not exist.
+ */
+function task_type_load($id) {
+  return entity_load('task_type', $id);
+}
+
+
+/**
+ * Implements hook_menu().
+ */
+function task_menu() {
+  $items['admin/structure/tasks/types'] = array(
+    'title' => 'Types',
+    'route_name' => 'task_type_list',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/structure/tasks/types/add'] = array(
+    'route_name' => 'task_type_add',
+    'type' => MENU_SIBLING_LOCAL_TASK,
+    'weight' => 1,
+  );
+  $items['admin/structure/tasks/manage/%task_type'] = array(
+    'title' => 'Edit task type',
+    'title callback' => 'entity_page_label',
+    'title arguments' => array(4),
+    'route_name' => 'task_type_edit',
+  );
+  $items['admin/structure/tasks/manage/%task_type/edit'] = array(
+    'title' => 'Edit',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/structure/tasks/manage/%task_type/delete'] = array(
+    'title' => 'Delete',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+    'route_name' => 'task_type_delete',
+  );
+  return $items;
+}
