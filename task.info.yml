@@ -1,0 +1,4 @@
+name: Task
+type: module
+description: 'Create and manage task items.'
+core: 8.x
