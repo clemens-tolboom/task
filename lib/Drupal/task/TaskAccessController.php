@@ -12,7 +12,7 @@ use Drupal\Core\Entity\EntityAccessController;
 use Drupal\Core\Session\AccountInterface;
 
 /**
- * Defines the access controller for the custom block entity type.
+ * Defines the access controller for the task entity type.
  */
 class TaskAccessController extends EntityAccessController {
 

@@ -41,10 +41,10 @@ class TaskFormController extends EntityFormControllerNG {
     $task = $this->entity;
     $insert = empty($task->id->value);
     $task->save();
-    $watchdog_args = array('@type' => $task->bundle(), '%info' => $task->label());
-    $task_type = entity_load('task_type', $task->type->value);
-    $t_args = array('@type' => $task_type->label(), '%info' => $task->label());
-
+    //$watchdog_args = array('@type' => $task->bundle(), '%info' => $task->label());
+    //$task_type = entity_load('task_type', $task->type->value);
+    //$t_args = array('@type' => $task_type->label(), '%info' => $task->label());
+    /*
     if ($insert) {
       watchdog('content', '@type: added %info.', $watchdog_args, WATCHDOG_NOTICE);
       drupal_set_message(t('@type %info has been created.', $t_args));
@@ -53,6 +53,7 @@ class TaskFormController extends EntityFormControllerNG {
       watchdog('content', '@type: updated %info.', $watchdog_args, WATCHDOG_NOTICE);
       drupal_set_message(t('@type %info has been updated.', $t_args));
     }
+    */
 
   }
 

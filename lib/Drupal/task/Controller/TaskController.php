@@ -102,11 +102,11 @@ class TaskController implements ControllerInterface {
     drupal_set_title(t('Add %type task', array(
       '%type' => $task_type->label()
     )), PASS_THROUGH);
-    $block = $this->TaskStorage->create(array(
+    $task = $this->TaskStorage->create(array(
       'type' => $task_type->id()
     ));
 
-    return $this->entityManager->getForm($block);
+    return $this->entityManager->getForm($task);
   }
 
 }
