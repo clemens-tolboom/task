@@ -5,6 +5,12 @@
  */
 function task_permission() {
   return array(
+    'access all task' => array(
+      'title' => t('Access all task'),
+    ),
+    'access own task' => array(
+      'title' => t('Access own task'),
+    ),
     'administer task types' => array(
       'title' => t('Administer task types'),
     ),
