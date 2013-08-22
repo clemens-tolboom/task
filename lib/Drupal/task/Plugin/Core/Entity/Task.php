@@ -24,7 +24,7 @@ use Drupal\task\TaskInterface;
  *   controllers = {
  *     "storage" = "Drupal\task\TaskStorageController",
  *     "access" = "Drupal\task\TaskAccessController",
- *     "list" = "Drupal\task\TaskListController",
+ *     "list" = "Drupal\Core\Entity\EntityListControllerr",
  *     "render" = "Drupal\Core\Entity\EntityRenderController",
  *     "form" = {
  *       "add" = "Drupal\task\TaskFormController",
@@ -33,7 +33,7 @@ use Drupal\task\TaskInterface;
  *     }
  *   },
  *   base_table = "task",
- *   route_base_path = "admin/structure/task/manage/{bundle}",
+ *   route_base_path = "admin/structure/task-types/manage/{bundle}",
  *   menu_base_path = "task/%task",
  *   menu_edit_path = "task/%task",
  *   fieldable = TRUE,

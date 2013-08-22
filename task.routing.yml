@@ -25,3 +25,25 @@ task_type_edit:
     _entity_form: 'task_type.edit'
   requirements:
     _entity_access: 'task_type.update'
+
+task_edit:
+  pattern: '/task/{task}'
+  defaults:
+    _entity_form: 'task.edit'
+  requirements:
+    _entity_access: 'task.update'
+    task: \d+
+
+task_add_page:
+  pattern: '/task/add'
+  defaults:
+    _content: 'Drupal\task\Controller\TaskController::add'
+  requirements:
+    _permission: 'administer tasks'
+
+task_add_form:
+  pattern: 'task/add/{task_type'
+  defaults:
+    _content: 'Drupal\task\Controller\TaskController::addForm'
+  requirements:
+    _permission: 'administer tasks'

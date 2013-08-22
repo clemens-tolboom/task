@@ -14,6 +14,9 @@ function task_permission() {
     'administer task types' => array(
       'title' => t('Administer task types'),
     ),
+    'administer tasks' => array(
+      'title' => t('Administer tasks'),
+    ),
   );
 }
 
@@ -63,5 +66,25 @@ function task_menu() {
     'weight' => 10,
     'route_name' => 'task_type_delete',
   );
+  $items['task/add'] = array(
+    'title' => 'Add custom task',
+    'route_name' => 'task_add_page',
+  );
+  $items['task/add/%task_type'] = array(
+    'title' => 'Add task',
+    'description' => 'Add task',
+    'route_name' => 'task_add_form'
+  );
+  // There has to be a base-item in order for contextual links to work.
+  $items['task/%task'] = array(
+    'title' => 'Edit',
+    'route_name' => 'task_edit',
+  );
+  $items['task/%task/edit'] = array(
+    'title' => 'Edit',
+    'weight' => 0,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );  
   return $items;
 }
