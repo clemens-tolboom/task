@@ -7,14 +7,13 @@
 
 namespace Drupal\task;
 
-use Drupal\Core\Datetime\DrupalDateTime;
-use Drupal\Core\Entity\EntityFormControllerNG;
+use Drupal\Core\Entity\EntityFormController;
 use Drupal\Core\Language\Language;
 
 /**
  * Form controller for the task edit forms.
  */
-class TaskFormController extends EntityFormControllerNG {
+class TaskFormController extends EntityFormController {
 
   /**
    * Overrides \Drupal\Core\Entity\EntityFormController::form().
@@ -26,7 +25,7 @@ class TaskFormController extends EntityFormControllerNG {
       '#type' => 'textfield',
       '#title' => t('Task'),
       '#required' => TRUE,
-      '#default_value' => $task->name->value,
+      '#default_value' => $task->name,
       '#weight' => -5,
     );
 

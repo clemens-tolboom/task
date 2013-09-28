@@ -26,7 +26,7 @@ function task_permission() {
  * @param int $id
  *   The ID of the task type to load.
  *
- * @return \Drupal\task\Plugin\Core\Entity\TaskType|null
+ * @return \Drupal\task\Entity\TaskType|null
  *   A TaskType object or NULL if the requested $id does not exist.
  */
 function task_type_load($id) {
