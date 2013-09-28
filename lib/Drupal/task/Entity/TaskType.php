@@ -5,7 +5,7 @@
  * Contains \Drupal\task\Plugin\Core\Entity\TaskType.
  */
 
-namespace Drupal\task\Plugin\Core\Entity;
+namespace Drupal\task\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
 use Drupal\Core\Entity\Annotation\EntityType;
@@ -36,6 +36,9 @@ use Drupal\task\TaskTypeInterface;
  *     "id" = "id",
  *     "label" = "label",
  *     "uuid" = "uuid"
+ *   },
+ *   links = {
+ *     "edit-form" = "admin/structure/task-types/manage/{task_type}"
  *   }
  * )
  */
@@ -75,43 +78,4 @@ class TaskType extends ConfigEntityBase implements TaskTypeInterface {
    * @var string
    */
   public $description;
-
-  /**
-   * Overrides \Drupal\Core\Entity\Entity::uri().
-   */
-  public function uri() {
-    return array(
-      'path' => 'admin/structure/task-types/manage/' . $this->id(),
-      'options' => array(
-        'entity_type' => $this->entityType,
-        'entity' => $this,
-      )
-    );
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function postSave(EntityStorageControllerInterface $storage_controller, $update = TRUE) {
-    /*
-    if (!$update) {
-      entity_invoke_bundle_hook('create', 'task', $this->id());
-      task_add_body_field($this->id);
-    }
-    elseif ($this->originalID != $this->id) {
-      entity_invoke_bundle_hook('rename', 'task', $this->originalID, $this->id);
-    }*/
-
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function postDelete(EntityStorageControllerInterface $storage_controller, array $entities) {
-    /*
-    foreach ($entities as $entity) {
-      entity_invoke_bundle_hook('delete', 'task', $entity->id());
-    }
-    */
-  }
 }

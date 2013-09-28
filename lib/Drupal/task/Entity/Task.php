@@ -5,7 +5,7 @@
  * Contains \Drupal\task\Plugin\Core\Entity\Task.
  */
 
-namespace Drupal\task\Plugin\Core\Entity;
+namespace Drupal\task\Entity;
 
 use Drupal\Core\Entity\EntityNG;
 use Drupal\Core\Entity\EntityStorageControllerInterface;
