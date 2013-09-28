@@ -20,7 +20,7 @@ class TaskTypeListController extends ConfigEntityListController {
    */
   public function getOperations(EntityInterface $entity) {
     $operations = parent::getOperations($entity);
-    if (module_exists('field_ui')) {
+    if (\Drupal::moduleHandler()->moduleExists('field_ui')) {
       $uri = $entity->uri();
       $operations['manage-fields'] = array(
         'title' => t('Manage fields'),
@@ -45,7 +45,7 @@ class TaskTypeListController extends ConfigEntityListController {
   }
 
   /**
-   * Overrides \Drupal\Core\Entity\EntityListController::buildHeader().
+   * {@inheritdoc}
    */
   public function buildHeader() {
     $row['type'] = t('Task type');
@@ -55,7 +55,7 @@ class TaskTypeListController extends ConfigEntityListController {
   }
 
   /**
-   * Overrides \Drupal\Core\Entity\EntityListController::buildRow().
+   * {@inheritdoc}
    */
   public function buildRow(EntityInterface $entity) {
     parent::buildRow($entity);
@@ -64,15 +64,6 @@ class TaskTypeListController extends ConfigEntityListController {
     $row['description'] = filter_xss_admin($entity->description);
     $row['operations']['data'] = $this->buildOperations($entity);
     return $row;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function render() {
-    // @todo Remove this once https://drupal.org/node/2032535 is in.
-    drupal_set_title(t('Task types'));
-    return parent::render();
   }
 
 }
