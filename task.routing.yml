@@ -1,48 +1,48 @@
-task_type_list:
-  pattern: '/admin/structure/task-types'
+task.task_type_list:
+  path: '/admin/structure/task-types'
   defaults:
     _entity_list: 'task_type'
   requirements:
     _permission: 'administer task types'
 
-task_type_delete:
-  pattern: '/admin/structure/task-types/manage/{task_type}/delete'
+task.task_type_delete:
+  path: '/admin/structure/task-types/manage/{task_type}/delete'
   defaults:
     _entity_form: 'task_type.delete'
   requirements:
     _entity_access: 'task_type.delete'
 
-task_type_add:
-  pattern: '/admin/structure/task-types/add'
+task.task_type_add:
+  path: '/admin/structure/task-types/add'
   defaults:
     _entity_form: 'task_type.add'
   requirements:
     _permission: 'administer task types'
 
-task_type_edit:
-  pattern: '/admin/structure/task-types/manage/{task_type}'
+task.task_type_edit:
+  path: '/admin/structure/task-types/manage/{task_type}'
   defaults:
     _entity_form: 'task_type.edit'
   requirements:
     _entity_access: 'task_type.update'
 
-task_edit:
-  pattern: '/task/{task}'
+task.task_edit:
+  path: '/task/{task}'
   defaults:
     _entity_form: 'task.edit'
   requirements:
     _entity_access: 'task.update'
     task: \d+
 
-task_add_page:
-  pattern: '/task/add'
+task.task_add_page:
+  path: '/task/add'
   defaults:
     _content: 'Drupal\task\Controller\TaskController::add'
   requirements:
     _permission: 'administer tasks'
 
-task_add_form:
-  pattern: 'task/add/{task_type'
+task.task_add_form:
+  path: 'task/add/{task_type'
   defaults:
     _content: 'Drupal\task\Controller\TaskController::addForm'
   requirements:
