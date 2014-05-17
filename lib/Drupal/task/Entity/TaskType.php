@@ -69,4 +69,17 @@ class TaskType extends ConfigEntityBundleBase implements TaskTypeInterface {
    * @var string
    */
   public $description;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function uri() {
+    return array(
+        'path' => 'task/' . $this->id(),
+        'options' => array(
+            'entity_type' => $this->entityType,
+            'entity' => $this,
+        )
+    );
+  }
 }

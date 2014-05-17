@@ -19,35 +19,6 @@ class TaskTypeListBuilder extends ConfigEntityListBuilder {
   /**
    * {@inheritdoc}
    */
-  public function getOperations(EntityInterface $entity) {
-    $operations = parent::getOperations($entity);
-    if (\Drupal::moduleHandler()->moduleExists('field_ui')) {
-      $uri = $entity->uri();
-      $operations['manage-fields'] = array(
-        'title' => t('Manage fields'),
-        'href' => $uri['path'] . '/fields',
-        'options' => $uri['options'],
-        'weight' => 0,
-      );
-      $operations['manage-form-display'] = array(
-        'title' => t('Manage form display'),
-        'href' => $uri['path'] . '/form-display',
-        'options' => $uri['options'],
-        'weight' => 5,
-      );
-      $operations['manage-display'] = array(
-        'title' => t('Manage display'),
-        'href' => $uri['path'] . '/display',
-        'options' => $uri['options'],
-        'weight' => 10,
-      );
-    }
-    return $operations;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function buildHeader() {
     $row['type'] = t('Task type');
     $row['description'] = t('Description');

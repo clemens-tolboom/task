@@ -1,7 +1,8 @@
-task.task_type_list:
+task.type_list:
   path: '/admin/structure/task-types'
   defaults:
     _entity_list: 'task_type'
+    _title: 'Task types'
   requirements:
     _permission: 'administer task types'
 

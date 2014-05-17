@@ -1,0 +1,5 @@
+task.type_list:
+  title: 'Task types'
+  parent: system.admin_structure
+  description: 'Define custom task types.'
+  route_name: task.type_list

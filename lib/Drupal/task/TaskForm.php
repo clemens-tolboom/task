@@ -7,13 +7,12 @@
 
 namespace Drupal\task;
 
-use Drupal\Core\Entity\EntityFormController;
-use Drupal\Core\Language\Language;
+use Drupal\Core\Entity\ContentEntityForm;
 
 /**
  * Form controller for the task edit forms.
  */
-class TaskFormController extends EntityFormController {
+class TaskForm extends ContentEntityForm {
 
   /**
    * Overrides \Drupal\Core\Entity\EntityFormController::form().

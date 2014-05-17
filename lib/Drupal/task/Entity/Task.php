@@ -7,35 +7,34 @@
 
 namespace Drupal\task\Entity;
 
-use Drupal\Core\Entity\EntityNG;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
-use Drupal\Core\Entity\Annotation\EntityType;
-use Drupal\Core\Annotation\Translation;
+use Drupal\Core\Entity\ContentEntityBase;
+use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\task\TaskInterface;
 
 /**
  * Defines the task entity class.
  *
- * @EntityType(
+ * @ContentEntityType(
  *   id = "task",
  *   label = @Translation("Task"),
  *   bundle_label = @Translation("Task type"),
- *   module = "task",
  *   controllers = {
- *     "storage" = "Drupal\task\TaskStorageController",
  *     "access" = "Drupal\task\TaskAccessController",
- *     "list" = "Drupal\Core\Entity\EntityListControllerr",
- *     "render" = "Drupal\Core\Entity\EntityRenderController",
  *     "form" = {
- *       "add" = "Drupal\task\TaskFormController",
- *       "edit" = "Drupal\task\TaskFormController",
- *       "default" = "Drupal\task\TaskFormController"
+ *       "add" = "Drupal\task\TaskForm",
+ *       "edit" = "Drupal\task\TaskForm",
+ *       "default" = "Drupal\task\TaskForm"
  *     }
  *   },
+ *   admin_permission = "administer tasks",
  *   base_table = "task",
- *   route_base_path = "admin/structure/task-types/manage/{bundle}",
- *   menu_base_path = "task/%task",
- *   menu_edit_path = "task/%task",
+ *   links = {
+ *     "canonical" = "task.edit",
+ *     "delete-form" = "task.delete",
+ *     "edit-form" = "task.edit",
+ *     "admin-form" = "task.type_edit"
+ *   },
  *   fieldable = TRUE,
  *   entity_keys = {
  *     "id" = "id",
@@ -43,55 +42,38 @@ use Drupal\task\TaskInterface;
  *     "label" = "name",
  *     "uuid" = "uuid"
  *   },
- *   bundle_keys = {
- *     "bundle" = "type"
- *   }
+ *   bundle_entity_type = "task_type"
  * )
  */
-class Task extends EntityNG implements TaskInterface {
+class Task extends ContentEntityBase implements TaskInterface {
 
   /**
-   * The task ID.
-   *
-   * @var \Drupal\Core\Entity\Field\FieldInterface
+   * {@inheritdoc}
    */
-  public $id;
+  public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
+    $fields['id'] = FieldDefinition::create('integer')
+        ->setLabel(t('Task ID'))
+        ->setDescription(t('The task ID.'))
+        ->setReadOnly(TRUE)
+        ->setSetting('unsigned', TRUE);
 
-  /**
-   * The task UUID.
-   *
-   * @var \Drupal\Core\Entity\Field\FieldInterface
-   */
-  public $uuid;
+    $fields['uuid'] = FieldDefinition::create('uuid')
+        ->setLabel(t('UUID'))
+        ->setDescription(t('The task UUID.'))
+        ->setReadOnly(TRUE);
 
-  /**
-   * The custom task type (bundle).
-   *
-   * @var \Drupal\Core\Entity\Field\FieldInterface
-   */
-  public $type;
+    $fields['langcode'] = FieldDefinition::create('language')
+        ->setLabel(t('Language code'))
+        ->setDescription(t('The task language code.'));
 
-  /**
-   * The task language code.
-   *
-   * @var \Drupal\Core\Entity\Field\FieldInterface
-   */
-  public $langcode;
+    $fields['type'] = FieldDefinition::create('entity_reference')
+        ->setLabel(t('Task type'))
+        ->setDescription(t('The task type.'))
+        ->setSetting('target_type', 'task_type')
+        ->setSetting('max_length', EntityTypeInterface::BUNDLE_MAX_LENGTH);
 
-  /**
-   * The task description.
-   *
-   * @var \Drupal\Core\Entity\Field\FieldInterface
-   */
-  public $name;
-
-  /**
-   * The task description.
-   *
-   * @var \Drupal\Core\Entity\Field\FieldInterface
-   */
-  public $description;
-
+    return $fields;
+  }
 
   /**
    * {@inheritdoc}
