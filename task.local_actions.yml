@@ -1,0 +1,6 @@
+task.type_add:
+  route_name: task.type_add
+  title: 'Add task type'
+  weight: 1
+  appears_on:
+    - task.type_list

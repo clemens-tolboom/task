@@ -26,7 +26,7 @@ class TaskTypeDeleteForm extends EntityConfirmFormBase {
    */
   public function getCancelRoute() {
     return array(
-      'route_name' => 'task.task_type_list',
+      'route_name' => 'task.type_list',
     );
   }
 
@@ -35,11 +35,9 @@ class TaskTypeDeleteForm extends EntityConfirmFormBase {
    */
   public function submit(array $form, array &$form_state) {
     $this->entity->delete();
-
     drupal_set_message(t('task type %label has been deleted.', array('%label' => $this->entity->label())));
     watchdog('task', 'task type %label has been deleted.', array('%label' => $this->entity->label()), WATCHDOG_NOTICE);
-
-    $form_state['redirect'] = 'admin/structure/task-types';
+    $form_state['redirect_route'] = $this->getCancelRoute();
   }
 
 }
