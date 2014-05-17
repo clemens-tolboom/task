@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 class TaskController extends ControllerBase {
 
   public function add() {
-    $types = $this->entityManager()->getStorageController('task_type')->loadMultiple();
+    $types = $this->entityManager()->getStorage('task_type')->loadMultiple();
     if ($types && count($types) == 1) {
       $type = reset($types);
       return $this->addForm($type);
@@ -34,8 +34,8 @@ class TaskController extends ControllerBase {
    *   A form array as expected by drupal_render().
    */
   public function addForm(TaskTypeInterface $task_type) {
-    $task = $this->entityManager()->getStorageController('task')->create(array('type' => $task_type->id()));
-    return $this->entityManager->getForm($task);
+    $task = $this->entityManager()->getStorage('task')->create(array('type' => $task_type->id()));
+    return $this->entityFormBuilder()->getForm($task);
   }
 
 }

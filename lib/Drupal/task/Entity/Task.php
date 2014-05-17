@@ -62,6 +62,27 @@ class Task extends ContentEntityBase implements TaskInterface {
         ->setDescription(t('The task UUID.'))
         ->setReadOnly(TRUE);
 
+    $fields['name'] = FieldDefinition::create('string')
+        ->setLabel(t('Name'))
+        ->setDescription(t('Name of the task.'))
+        ->setRequired(TRUE)
+        ->setTranslatable(TRUE)
+        ->setRevisionable(TRUE)
+        ->setSettings(array(
+            'default_value' => '',
+            'max_length' => 255,
+        ))
+        ->setDisplayOptions('view', array(
+            'label' => 'hidden',
+            'type' => 'string',
+            'weight' => -5,
+        ))
+        ->setDisplayOptions('form', array(
+            'type' => 'string',
+            'weight' => -5,
+        ))
+        ->setDisplayConfigurable('form', TRUE);
+
     $fields['langcode'] = FieldDefinition::create('language')
         ->setLabel(t('Language code'))
         ->setDescription(t('The task language code.'));

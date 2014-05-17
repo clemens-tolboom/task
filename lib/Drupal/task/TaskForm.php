@@ -15,24 +15,6 @@ use Drupal\Core\Entity\ContentEntityForm;
 class TaskForm extends ContentEntityForm {
 
   /**
-   * Overrides \Drupal\Core\Entity\EntityFormController::form().
-   */
-  public function form(array $form, array &$form_state) {
-    $task = $this->entity;
-
-    $form['name'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Task'),
-      '#required' => TRUE,
-      '#default_value' => $task->name,
-      '#weight' => -5,
-    );
-
-
-    return parent::form($form, $form_state, $task);
-  }
-
-  /**
    * Overrides \Drupal\Core\Entity\EntityFormController::save().
    */
   public function save(array $form, array &$form_state) {
