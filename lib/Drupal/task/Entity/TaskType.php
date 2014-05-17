@@ -8,41 +8,39 @@
 namespace Drupal\task\Entity;
 
 use Drupal\Core\Config\Entity\ConfigEntityBase;
-use Drupal\Core\Entity\Annotation\EntityType;
-use Drupal\Core\Annotation\Translation;
-use Drupal\Core\Entity\EntityStorageControllerInterface;
+use Drupal\Core\Config\Entity\ConfigEntityBundleBase;
+use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\task\TaskTypeInterface;
 
 /**
  * Defines the task type entity.
  *
- * @EntityType(
+ * @ConfigEntityType(
  *   id = "task_type",
  *   label = @Translation("Task type"),
- *   module = "task",
  *   controllers = {
- *     "storage" = "Drupal\Core\Config\Entity\ConfigStorageController",
  *     "access" = "Drupal\task\TaskTypeAccessController",
+ *     "list_builder" = "Drupal\task\TaskTypeListBuilder",
  *     "form" = {
- *       "default" = "Drupal\task\TaskTypeFormController",
- *       "add" = "Drupal\task\TaskTypeFormController",
- *       "edit" = "Drupal\task\TaskTypeFormController",
+ *       "add" = "Drupal\task\TaskTypeForm",
+ *       "edit" = "Drupal\task\TaskTypeForm",
  *       "delete" = "Drupal\task\Form\TaskTypeDeleteForm"
- *     },
- *     "list" = "Drupal\task\TaskTypeListController"
+ *     }
  *   },
- *   config_prefix = "task.type",
+ *   config_prefix = "task",
+ *   admin_permission = "administer task types",
+ *   bundle_of = "task",
  *   entity_keys = {
  *     "id" = "id",
- *     "label" = "label",
- *     "uuid" = "uuid"
+ *     "label" = "label"
  *   },
  *   links = {
- *     "edit-form" = "admin/structure/task-types/manage/{task_type}"
+ *     "delete-form" = "task.type_delete",
+ *     "edit-form" = "task.type_edit"
  *   }
  * )
  */
-class TaskType extends ConfigEntityBase implements TaskTypeInterface {
+class TaskType extends ConfigEntityBundleBase implements TaskTypeInterface {
 
   /**
    * The task type ID.
@@ -50,13 +48,6 @@ class TaskType extends ConfigEntityBase implements TaskTypeInterface {
    * @var string
    */
   public $id;
-
-  /**
-   * The task type UUID.
-   *
-   * @var string
-   */
-  public $uuid;
 
   /**
    * The task type label.

@@ -5,21 +5,21 @@ task.task_type_list:
   requirements:
     _permission: 'administer task types'
 
-task.task_type_delete:
+task.type_delete:
   path: '/admin/structure/task-types/manage/{task_type}/delete'
   defaults:
     _entity_form: 'task_type.delete'
   requirements:
     _entity_access: 'task_type.delete'
 
-task.task_type_add:
+task.type_add:
   path: '/admin/structure/task-types/add'
   defaults:
     _entity_form: 'task_type.add'
   requirements:
     _permission: 'administer task types'
 
-task.task_type_edit:
+task.type_edit:
   path: '/admin/structure/task-types/manage/{task_type}'
   defaults:
     _entity_form: 'task_type.edit'

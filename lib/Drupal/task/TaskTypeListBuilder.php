@@ -7,13 +7,14 @@
 
 namespace Drupal\task;
 
-use Drupal\Core\Config\Entity\ConfigEntityListController;
+use Drupal\Component\Utility\String;
+use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
 
 /**
  * Provides a listing of task types.
  */
-class TaskTypeListController extends ConfigEntityListController {
+class TaskTypeListBuilder extends ConfigEntityListBuilder {
 
   /**
    * {@inheritdoc}
@@ -61,7 +62,7 @@ class TaskTypeListController extends ConfigEntityListController {
     parent::buildRow($entity);
     $uri = $entity->uri();
     $row['type'] = l($entity->label(), $uri['path'], $uri['options']);
-    $row['description'] = filter_xss_admin($entity->description);
+    $row['description'] = String::checkPlain($entity->description);
     $row['operations']['data'] = $this->buildOperations($entity);
     return $row;
   }

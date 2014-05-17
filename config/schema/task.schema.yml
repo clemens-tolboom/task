@@ -7,9 +7,6 @@ task.type.*:
     id:
       type: string
       label: 'Machine-readable name'
-    uuid:
-      type: string
-      label: 'UUID'
     label:
       type: label
       label: 'Label'

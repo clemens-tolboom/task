@@ -7,12 +7,12 @@
 
 namespace Drupal\task;
 
-use Drupal\Core\Entity\EntityFormController;
+use Drupal\Core\Entity\EntityForm;
 
 /**
  * Base form controller for category edit forms.
  */
-class TaskTypeFormController extends EntityFormController {
+class TaskTypeForm extends EntityForm {
 
   /**
    * Overrides \Drupal\Core\Entity\EntityFormController::form().
@@ -53,23 +53,21 @@ class TaskTypeFormController extends EntityFormController {
       '#description' => t('Create a new revision by default for this task type.')
     );
 
-    if (module_exists('content_translation')) {
+    if ($this->moduleHandler->moduleExists('content_translation')) {
       $form['language'] = array(
-        '#type' => 'details',
-        '#title' => t('Language settings'),
-        '#collapsible' => TRUE,
-        '#collapsed' => TRUE,
-        '#group' => 'additional_settings',
+          '#type' => 'details',
+          '#title' => t('Language settings'),
+          '#group' => 'additional_settings',
       );
 
       $language_configuration = language_get_default_configuration('task', $task_type->id());
       $form['language']['language_configuration'] = array(
-        '#type' => 'language_configuration',
-        '#entity_information' => array(
-          'entity_type' => 'task',
-          'bundle' => $task_type->id(),
-        ),
-        '#default_value' => $language_configuration,
+          '#type' => 'language_configuration',
+          '#entity_information' => array(
+              'entity_type' => 'custom_block',
+              'bundle' => $task_type->id(),
+          ),
+          '#default_value' => $language_configuration,
       );
 
       $form['#submit'][] = 'language_configuration_element_submit';
@@ -103,13 +101,4 @@ class TaskTypeFormController extends EntityFormController {
 
     $form_state['redirect'] = 'admin/structure/task-types';
   }
-
-  /**
-   * Overrides \Drupal\Core\Entity\EntityFormController::delete().
-   */
-  public function delete(array $form, array &$form_state) {
-    $task_type = $this->entity;
-    $form_state['redirect'] = 'admin/structure/task-types/manage/' . $task_type->id() . '/delete';
-  }
-
 }
