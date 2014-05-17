@@ -21,18 +21,20 @@ use Drupal\task\TaskInterface;
  *   bundle_label = @Translation("Task type"),
  *   controllers = {
  *     "access" = "Drupal\task\TaskAccessController",
+ *     "view_builder" = "Drupal\Core\Entity\EntityViewBuilder",
  *     "form" = {
  *       "add" = "Drupal\task\TaskForm",
  *       "edit" = "Drupal\task\TaskForm",
+ *       "delete" = "Drupal\task\Form\TaskDeleteForm",
  *       "default" = "Drupal\task\TaskForm"
  *     }
  *   },
  *   admin_permission = "administer tasks",
  *   base_table = "task",
  *   links = {
- *     "canonical" = "task.edit",
- *     "delete-form" = "task.delete",
- *     "edit-form" = "task.edit",
+ *     "canonical" = "task.view",
+ *     "edit-form" = "task.task_edit",
+ *     "delete-form" = "task.task_delete",
  *     "admin-form" = "task.type_edit"
  *   },
  *   fieldable = TRUE,

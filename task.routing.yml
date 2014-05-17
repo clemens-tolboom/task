@@ -27,13 +27,27 @@ task.type_edit:
   requirements:
     _entity_access: 'task_type.update'
 
-task.task_edit:
+task.task_view:
   path: '/task/{task}'
+  defaults:
+    _entity_view: 'task.full'
+  requirements:
+    _entity_access: 'task.view'
+
+task.task_edit:
+  path: '/task/{task}/edit'
   defaults:
     _entity_form: 'task.edit'
   requirements:
     _entity_access: 'task.update'
-    task: \d+
+
+task.task_delete:
+  path: '/task/{task}/delete'
+  defaults:
+    _entity_form: 'task.delete'
+    _title: 'Delete'
+  requirements:
+    _entity_access: 'task.delete'
 
 task.task_add_page:
   path: '/task/add'
