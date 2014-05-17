@@ -1,0 +1,5 @@
+id: task
+label: 'Task'
+description: 'Default task type.'
+status: true
+langcode: en
