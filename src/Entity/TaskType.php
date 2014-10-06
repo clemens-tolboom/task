@@ -18,7 +18,7 @@ use Drupal\task\TaskTypeInterface;
  * @ConfigEntityType(
  *   id = "task_type",
  *   label = @Translation("Task type"),
- *   controllers = {
+ *   handlers = {
  *     "access" = "Drupal\task\TaskTypeAccessController",
  *     "list_builder" = "Drupal\task\TaskTypeListBuilder",
  *     "form" = {
