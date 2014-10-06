@@ -19,7 +19,7 @@ use Drupal\task\TaskInterface;
  *   id = "task",
  *   label = @Translation("Task"),
  *   bundle_label = @Translation("Task type"),
- *   controllers = {
+ *   handlers = {
  *     "access" = "Drupal\task\TaskAccessController",
  *     "view_builder" = "Drupal\Core\Entity\EntityViewBuilder",
  *     "form" = {
