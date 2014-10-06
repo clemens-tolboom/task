@@ -8,7 +8,7 @@
 namespace Drupal\task\Entity;
 
 use Drupal\Core\Entity\ContentEntityBase;
-use Drupal\Core\Field\FieldDefinition;
+use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\task\TaskInterface;
 
@@ -53,18 +53,18 @@ class Task extends ContentEntityBase implements TaskInterface {
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-    $fields['id'] = FieldDefinition::create('integer')
+    $fields['id'] = BaseFieldDefinition::create('integer')
         ->setLabel(t('Task ID'))
         ->setDescription(t('The task ID.'))
         ->setReadOnly(TRUE)
         ->setSetting('unsigned', TRUE);
 
-    $fields['uuid'] = FieldDefinition::create('uuid')
+    $fields['uuid'] = BaseFieldDefinition::create('uuid')
         ->setLabel(t('UUID'))
         ->setDescription(t('The task UUID.'))
         ->setReadOnly(TRUE);
 
-    $fields['name'] = FieldDefinition::create('string')
+    $fields['name'] = BaseFieldDefinition::create('string')
         ->setLabel(t('Name'))
         ->setDescription(t('Name of the task.'))
         ->setRequired(TRUE)
@@ -85,11 +85,11 @@ class Task extends ContentEntityBase implements TaskInterface {
         ))
         ->setDisplayConfigurable('form', TRUE);
 
-    $fields['langcode'] = FieldDefinition::create('language')
+    $fields['langcode'] = BaseFieldDefinition::create('language')
         ->setLabel(t('Language code'))
         ->setDescription(t('The task language code.'));
 
-    $fields['type'] = FieldDefinition::create('entity_reference')
+    $fields['type'] = BaseFieldDefinition::create('entity_reference')
         ->setLabel(t('Task type'))
         ->setDescription(t('The task type.'))
         ->setSetting('target_type', 'task_type')
